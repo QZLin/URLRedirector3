@@ -9,11 +9,23 @@ import { sendMessage, type ExtensionMessage } from "../shared/messaging";
 import { OnlineURL, Rule, Storage } from "../shared/model";
 import type { RuleData, StorageData } from "../shared/model";
 import { readSettings, writeSettings } from "../shared/storage";
+import {
+  fadeOut,
+  find,
+  h,
+  hideModal,
+  initModals,
+  must,
+  setCollapsed,
+  show,
+  showModal,
+} from "../shared/ui";
 
 const RESOURCE_TYPE_URL =
   "https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/webRequest/ResourceType";
 const ADDON_URL = "https://addons.mozilla.org/firefox/addon/urlredirector/";
 const OPTION_TAB_URL = window.location.href;
+const CLOUD_MESSAGE_MS = 8000;
 
 const NOTIFICATIONS = {
   downloading: getMessage("downloading"),
@@ -28,6 +40,7 @@ let settings = new Storage();
 let editingOnlineURL: OnlineURL | null = null;
 let editingOnlineURLIndex = 0;
 let editingRule: Rule | null = null;
+let cancelCloudMessage: (() => void) | null = null;
 
 /** Focus the options tab again, e.g. after the OAuth round trip. */
 async function activateOptionsTab(): Promise<void> {
@@ -39,23 +52,39 @@ async function activateOptionsTab(): Promise<void> {
 }
 
 function blockUI(message: string | undefined): void {
-  $("#cloudMessage").text(message ?? "");
-  $("#modalCloud").modal("show");
+  must("#cloudMessage").textContent = message ?? "";
+  showModal(must("#modalCloud"));
 }
 
 function unblockUI(): void {
-  $("#modalCloud").modal("hide");
+  hideModal(must("#modalCloud"));
 }
 
 function showCloudMessage(message: string | undefined): void {
-  $("#spanCloudMessage")
-    .show()
-    .text(message ?? "")
-    .fadeOut(8000);
+  const label = must("#spanCloudMessage");
+  cancelCloudMessage?.();
+  label.textContent = message ?? "";
+  show(label);
+  cancelCloudMessage = fadeOut(label, CLOUD_MESSAGE_MS);
 }
 
 function cloudDriver(): typeof onedrive | null {
-  return $("#sltCloud").val() === "onedrive" ? onedrive : null;
+  return must<HTMLSelectElement>("#sltCloud").value === "onedrive" ? onedrive : null;
+}
+
+/** Row index inside its table body. */
+function rowIndex(row: Element): number {
+  return Array.prototype.indexOf.call(row.parentElement?.children ?? [], row);
+}
+
+/** All data rows of a table body. */
+function rowsOf(tableId: string): HTMLTableRowElement[] {
+  return Array.from(document.querySelectorAll<HTMLTableRowElement>(`${tableId} tbody tr`));
+}
+
+/** Set the download-state label. */
+function setDownloadState(message: string): void {
+  must("#downloadState").textContent = message;
 }
 
 /* Cloud upload */
@@ -107,178 +136,223 @@ async function downloadFromCloud(): Promise<void> {
 }
 
 /* Move a row up or down */
-function moveUpOrDown(element: HTMLElement, up: boolean): void {
-  const $row = $(element);
-  const index = $row.index();
-  const rows = $row.closest("table").is("#tblOnlineURLs")
-    ? settings.onlineURLs
-    : settings.customRules;
+function moveUpOrDown(row: HTMLTableRowElement, up: boolean): void {
+  const index = rowIndex(row);
+  const rows =
+    row.closest("table")?.id === "tblOnlineURLs" ? settings.onlineURLs : settings.customRules;
   const neighbourIndex = up ? index - 1 : index + 1;
   const neighbour = rows[neighbourIndex];
   if (neighbour === undefined) {
     return;
   }
   if (up) {
-    $row.prev().before($row);
+    row.previousElementSibling?.before(row);
   } else {
-    $row.next().after($row);
+    row.nextElementSibling?.after(row);
   }
   rows[neighbourIndex] = rows[index]!;
   rows[index] = neighbour;
 }
 
+/** Up/down button pair shared by both tables. */
+function moveButtons(row: () => HTMLTableRowElement): HTMLElement[] {
+  return [
+    h(
+      "button",
+      {
+        className: "btn btn-xs btn-info",
+        on: { click: () => moveUpOrDown(row(), true) },
+      },
+      [h("span", { className: "glyphicon glyphicon-chevron-up" })],
+    ),
+    h(
+      "button",
+      {
+        className: "btn btn-xs btn-info",
+        style: { "margin-left": "2px" },
+        on: { click: () => moveUpOrDown(row(), false) },
+      },
+      [h("span", { className: "glyphicon glyphicon-chevron-down" })],
+    ),
+  ];
+}
+
+/** Build a table cell wrapping `child`. */
+function cell(child: Node | string, className?: string): HTMLTableCellElement {
+  return h("td", { className }, [child]);
+}
+
 /* Create a URL row */
 function createURLRow(onlineURL: OnlineURL): void {
-  const $url = $("<input>", { type: "text" })
-    .addClass("form-control")
-    .val(onlineURL.url ?? "")
-    .data("old", onlineURL.url ?? "")
-    .on("change", function (this: HTMLInputElement) {
-      const url = String($(this).val()).trim();
-      const duplicated = $(this)
-        .closest("tbody")
-        .find("input[type='text']")
-        .toArray()
-        .some((other) => other !== this && String($(other).val()).trim() === url);
-      if (duplicated) {
-        $(this).val($(this).data("old") as string);
-        return;
-      }
-      $(this).data("old", url);
-      settings.onlineURLs[$(this).closest("tr").index()]!.url = url;
-    });
+  const table = must<HTMLTableElement>("#tblOnlineURLs");
+  const tbody = table.tBodies[0]!;
 
-  $("#tblOnlineURLs tbody").append(
-    $("<tr>").append(
-      $("<td>").append($("<input>", { type: "checkbox" }).addClass("checkbox")),
-      $("<td>").append($url),
-      $("<td>")
-        .width("60px")
-        .append(
-          $("<a>")
-            .addClass("btn btn-xs btn-default")
-            .on("click", function () {
-              const target = settings.onlineURLs[$(this).closest("tr").index()];
-              if (target) {
-                showOnlineURLModal(target);
-              }
-            })
-            .append($("<i>").addClass("glyphicon glyphicon-eye-open")),
-        ),
-      $("<td>").append(
-        $("<input>", { type: "checkbox", title: getMessage("autoUpdate") })
-          .addClass("checkbox middle")
-          .prop("checked", onlineURL.auto)
-          .on("change", function () {
-            settings.onlineURLs[$(this).closest("tr").index()]!.auto = $(this).is(":checked");
-          }),
-      ),
-      $("<td>").append(
-        $("<input>", { type: "checkbox", title: getMessage("enable") })
-          .addClass("checkbox middle")
-          .prop("checked", onlineURL.enable)
-          .on("change", function () {
-            settings.onlineURLs[$(this).closest("tr").index()]!.enable = $(this).is(":checked");
-          }),
-      ),
-      $("<td>").append(
-        $("<button>")
-          .addClass("btn btn-xs btn-info")
-          .append($("<span>").addClass("glyphicon glyphicon-chevron-up"))
-          .on("click", function () {
-            moveUpOrDown(this, true);
-          }),
-        $("<button>")
-          .addClass("btn btn-xs btn-info")
-          .css("margin-left", "2px")
-          .append($("<span>").addClass("glyphicon glyphicon-chevron-down"))
-          .on("click", function () {
-            moveUpOrDown(this, false);
-          }),
+  const urlInput = h("input", {
+    className: "form-control",
+    value: onlineURL.url ?? "",
+    attributes: { type: "text" },
+  });
+  urlInput.dataset.old = onlineURL.url ?? "";
+  urlInput.addEventListener("change", () => {
+    const url = urlInput.value.trim();
+    const duplicated = Array.from(
+      tbody.querySelectorAll<HTMLInputElement>("input[type='text']"),
+    ).some((other) => other !== urlInput && other.value.trim() === url);
+    if (duplicated) {
+      urlInput.value = urlInput.dataset.old ?? "";
+      return;
+    }
+    urlInput.dataset.old = url;
+    settings.onlineURLs[rowIndex(urlInput.closest("tr")!)]!.url = url;
+  });
+
+  const viewButton = h(
+    "a",
+    {
+      className: "btn btn-xs btn-default",
+      on: {
+        click: () => {
+          const target = settings.onlineURLs[rowIndex(viewButton.closest("tr")!)];
+          if (target) {
+            showOnlineURLModal(target);
+          }
+        },
+      },
+    },
+    [h("i", { className: "glyphicon glyphicon-eye-open" })],
+  );
+
+  const autoCheckbox = h("input", {
+    className: "checkbox middle",
+    title: getMessage("autoUpdate"),
+    checked: onlineURL.auto,
+    attributes: { type: "checkbox" },
+    on: {
+      change: () => {
+        settings.onlineURLs[rowIndex(autoCheckbox.closest("tr")!)!]!.auto = autoCheckbox.checked;
+      },
+    },
+  });
+
+  const enableCheckbox = h("input", {
+    className: "checkbox middle",
+    title: getMessage("enable"),
+    checked: onlineURL.enable,
+    attributes: { type: "checkbox" },
+    on: {
+      change: () => {
+        settings.onlineURLs[rowIndex(enableCheckbox.closest("tr")!)!]!.enable =
+          enableCheckbox.checked;
+      },
+    },
+  });
+
+  const row: HTMLTableRowElement = h("tr", {}, [
+    cell(h("input", { className: "checkbox", attributes: { type: "checkbox" } })),
+    cell(urlInput),
+    h("td", { style: { width: "60px" } }, [viewButton]),
+    cell(autoCheckbox),
+    cell(enableCheckbox),
+    cell(
+      h(
+        "span",
+        {},
+        moveButtons(() => row),
       ),
     ),
-  );
+  ]);
+
+  tbody.append(row);
 }
 
 /* Create a rule row */
 function createRuleRow(rule: Rule): void {
-  $("#tblCustomRules tbody").append(
-    $("<tr>")
-      .append(
-        $("<td>").append($("<input>", { type: "checkbox" })),
-        $("<td>").append($("<span>").text(rule.description ?? "")),
-        $("<td>").append($("<span>").text(rule.origin ?? "")),
-        $("<td>").append($("<span>").text(rule.target ?? "")),
-        $("<td>").append(
-          $("<input>", { type: "checkbox", title: getMessage("enable") })
-            .prop("checked", rule.enable)
-            .on("change", function () {
-              settings.customRules[$(this).closest("tr").index()]!.enable = $(this).is(":checked");
-            }),
+  const tbody = must<HTMLTableElement>("#tblCustomRules").tBodies[0]!;
+
+  const enableCheckbox = h("input", {
+    title: getMessage("enable"),
+    checked: rule.enable,
+    attributes: { type: "checkbox" },
+    on: {
+      change: () => {
+        settings.customRules[rowIndex(enableCheckbox.closest("tr")!)!]!.enable =
+          enableCheckbox.checked;
+      },
+    },
+  });
+
+  const row: HTMLTableRowElement = h(
+    "tr",
+    {
+      on: {
+        dblclick: () => {
+          editingRule = settings.customRules[rowIndex(row)] ?? null;
+          showEditCustomRuleModal(editingRule);
+        },
+      },
+    },
+    [
+      cell(h("input", { attributes: { type: "checkbox" } })),
+      cell(h("span", { text: rule.description ?? "" })),
+      cell(h("span", { text: rule.origin ?? "" })),
+      cell(h("span", { text: rule.target ?? "" })),
+      cell(enableCheckbox),
+      cell(
+        h(
+          "span",
+          {},
+          moveButtons(() => row),
         ),
-        $("<td>").append(
-          $("<button>")
-            .addClass("btn btn-xs btn-info")
-            .append($("<span>").addClass("glyphicon glyphicon-chevron-up"))
-            .on("click", function () {
-              moveUpOrDown(this, true);
-            }),
-          $("<button>")
-            .addClass("btn btn-xs btn-info")
-            .css("margin-left", "2px")
-            .append($("<span>").addClass("glyphicon glyphicon-chevron-down"))
-            .on("click", function () {
-              moveUpOrDown(this, false);
-            }),
-        ),
-      )
-      .on("dblclick", function () {
-        const ruleIndex = $(this).index();
-        editingRule = settings.customRules[ruleIndex] ?? null;
-        showEditCustomRuleModal(editingRule);
-      }),
+      ),
+    ],
   );
+
+  tbody.append(row);
 }
 
 /* Display everything */
 function displayAll(): void {
-  $("table thead").find(":checkbox").prop("checked", false);
+  for (const checkbox of document.querySelectorAll<HTMLInputElement>("table thead input")) {
+    checkbox.checked = false;
+  }
 
   void sendMessage({ method: "isDownloading" }).then((isDownloading) => {
-    $("#downloadState").text(isDownloading ? (NOTIFICATIONS.downloading ?? "") : "");
+    setDownloadState(isDownloading ? (NOTIFICATIONS.downloading ?? "") : "");
   });
 
   const manifest = browser.runtime.getManifest();
-  $("#version").text(manifest.version);
-  $("#homepage").attr("href", manifest.homepage_url ?? "");
-  $("#addonPage").attr("href", ADDON_URL);
-  $("#resourceType").attr("href", RESOURCE_TYPE_URL);
+  must("#version").textContent = manifest.version;
+  must<HTMLAnchorElement>("#homepage").href = manifest.homepage_url ?? "";
+  must<HTMLAnchorElement>("#addonPage").href = ADDON_URL;
+  must<HTMLAnchorElement>("#resourceType").href = RESOURCE_TYPE_URL;
 
   if (settings.updateInterval) {
-    $("#onlineInterval").val(String(Math.round(settings.updateInterval / 60)));
+    must<HTMLSelectElement>("#onlineInterval").value = String(
+      Math.round(settings.updateInterval / 60),
+    );
   }
-  if (settings.updatedAt) {
-    $("#lblUpdatedAt").text(new Date(settings.updatedAt).toLocaleString());
-  }
-  if (settings.enable !== undefined) {
-    $("#chbEnable").prop("checked", settings.enable);
-  }
+  must("#lblUpdatedAt").textContent = settings.updatedAt
+    ? new Date(settings.updatedAt).toLocaleString()
+    : "";
+  must<HTMLInputElement>("#chbEnable").checked = settings.enable;
+
   if (!browser.storage.sync) {
-    $("#lblSync")
-      .prop("disabled", true)
-      .addClass("text-muted")
-      .attr("title", NOTIFICATIONS.syncNotSupported ?? "");
-    $("#chbSync").prop("disabled", true).prop("checked", false);
-  } else if (settings.sync !== undefined) {
-    $("#chbSync").prop("checked", settings.sync);
+    const label = must("#lblSync");
+    label.classList.add("text-muted");
+    label.title = NOTIFICATIONS.syncNotSupported ?? "";
+    const sync = must<HTMLInputElement>("#chbSync");
+    sync.disabled = true;
+    sync.checked = false;
+  } else {
+    must<HTMLInputElement>("#chbSync").checked = settings.sync;
   }
 
-  const $onlineURLBody = $("#tblOnlineURLs tbody").empty();
+  must("#tblOnlineURLs tbody").replaceChildren();
   for (const onlineURL of settings.onlineURLs) {
     createURLRow(onlineURL);
   }
-  void $onlineURLBody;
-  $("#tblCustomRules tbody").empty();
+
+  must("#tblCustomRules tbody").replaceChildren();
   for (const rule of settings.customRules) {
     createRuleRow(rule);
   }
@@ -288,101 +362,131 @@ function displayAll(): void {
 function showOnlineURLModal(onlineURL: OnlineURL): void {
   editingOnlineURL = onlineURL;
   editingOnlineURLIndex = settings.onlineURLs.indexOf(onlineURL);
-  $("#linkOnlineURL").attr("href", onlineURL.url ?? "");
-  const $body = $("#modalViewOnlineURL tbody").empty();
+  must<HTMLAnchorElement>("#linkOnlineURL").href = onlineURL.url ?? "";
+
+  const tbody = must("#modalViewOnlineURL tbody");
+  tbody.replaceChildren();
   for (const rule of onlineURL.rules) {
-    $body.append(
-      $("<tr>").append(
-        $("<td>").append(
-          $("<input>", { type: "checkbox" })
-            .addClass("checkbox")
-            .prop("checked", rule.enable)
-            .on("change", function () {
-              const ruleIndex = $(this).closest("tr").index();
-              const edited = editingOnlineURL?.rules[ruleIndex];
-              if (edited) {
-                edited.enable = $(this).prop("checked");
-              }
-              /* A manual change disables the automatic refresh. */
-              $("#tblOnlineURLs tbody tr")
-                .eq(editingOnlineURLIndex)
-                .find(":checkbox")
-                .eq(1)
-                .prop("checked", false);
-              if (editingOnlineURL) {
-                editingOnlineURL.auto = false;
-              }
-            }),
+    const toggle = h("input", {
+      className: "checkbox",
+      checked: rule.enable,
+      attributes: { type: "checkbox" },
+    });
+    toggle.addEventListener("change", () => {
+      const ruleIndex = rowIndex(toggle.closest("tr")!);
+      const edited = editingOnlineURL?.rules[ruleIndex];
+      if (edited) {
+        edited.enable = toggle.checked;
+      }
+      /* A manual change disables the automatic refresh of this subscription. */
+      const mainRow = rowsOf("#tblOnlineURLs")[editingOnlineURLIndex];
+      const auto = mainRow?.querySelectorAll<HTMLInputElement>("input[type='checkbox']")[1];
+      if (auto) {
+        auto.checked = false;
+      }
+      if (editingOnlineURL) {
+        editingOnlineURL.auto = false;
+      }
+    });
+
+    tbody.append(
+      h("tr", {}, [
+        cell(toggle),
+        cell(
+          h("span", {}, [
+            h("span", { text: rule.origin ?? "" }),
+            h("br"),
+            h("span", { text: rule.target ?? "" }),
+          ]),
         ),
-        $("<td>").append(
-          $("<span>").text(rule.origin ?? ""),
-          $("<br>"),
-          $("<span>").text(rule.target ?? ""),
-        ),
-      ),
+      ]),
     );
   }
-  $("#modalViewOnlineURL").modal("show");
+  showModal(must("#modalViewOnlineURL"));
 }
 
 /* Show the rule editor */
 function showEditCustomRuleModal(rule: Rule | null): void {
-  $("#divMethods input[type='checkbox']").prop("checked", false);
-  $("#divTypes input[type='checkbox']").prop("checked", false);
-  if (rule) {
-    $("#txtDescription").val(rule.description ?? "");
-    $("#txtOrigin").val(rule.origin ?? "");
-    $("#txtTarget").val(rule.target ?? "");
-    $("#txtExclude").val(rule.exclude ?? "");
-    $("#txtExample").val(rule.example ?? "");
-    $(`input:radio[name='process'][value='${rule.process ?? ""}']`).prop("checked", true);
-    $("#txtTestResult").val("");
-    if (rule.methods.length > 0) {
-      $("#cbMethodAll").prop("checked", false);
-      for (const method of rule.methods) {
-        $(`#cbMethod_${method}`).prop("checked", true);
-      }
-      $("#divMethods").collapse("show");
-    } else {
-      $("#cbMethodAll").prop("checked", true);
-      $("#divMethods").collapse("hide");
-    }
-    if (rule.types.length > 0) {
-      $("#cbTypeAll").prop("checked", false);
-      for (const type of rule.types) {
-        $(`#cbType_${type}`).prop("checked", true);
-      }
-      $("#divTypes").collapse("show");
-    } else {
-      $("#cbTypeAll").prop("checked", true);
-      $("#divTypes").collapse("hide");
-    }
-  } else {
-    $("#txtDescription").val("");
-    $("#txtOrigin").val("");
-    $("#txtTarget").val("");
-    $("#txtExclude").val("");
-    $("input:radio[name='process'][value='']").prop("checked", true);
-    $("#txtTestOrigin").val("");
-    $("#txtTestResult").val("");
-    $("#cbTypeAll").prop("checked", true);
-    $("#cbMethodAll").prop("checked", true);
+  const methodsCollapse = must("#divMethods");
+  const typesCollapse = must("#divTypes");
+  for (const checkbox of document.querySelectorAll<HTMLInputElement>(
+    "#divMethods input, #divTypes input",
+  )) {
+    checkbox.checked = false;
   }
+
+  if (rule) {
+    must<HTMLInputElement>("#txtDescription").value = rule.description ?? "";
+    must<HTMLInputElement>("#txtOrigin").value = rule.origin ?? "";
+    must<HTMLInputElement>("#txtTarget").value = rule.target ?? "";
+    must<HTMLInputElement>("#txtExclude").value = rule.exclude ?? "";
+    must<HTMLInputElement>("#txtExample").value = rule.example ?? "";
+    setProcessRadio(rule.process);
+    must<HTMLInputElement>("#txtTestResult").value = "";
+
+    const methodAll = must<HTMLInputElement>("#cbMethodAll");
+    methodAll.checked = rule.methods.length === 0;
+    for (const method of rule.methods) {
+      const checkbox = find<HTMLInputElement>(`#cbMethod_${method}`);
+      if (checkbox) {
+        checkbox.checked = true;
+      }
+    }
+    setCollapsed(methodsCollapse, rule.methods.length === 0);
+
+    const typeAll = must<HTMLInputElement>("#cbTypeAll");
+    typeAll.checked = rule.types.length === 0;
+    for (const type of rule.types) {
+      const checkbox = find<HTMLInputElement>(`#cbType_${type}`);
+      if (checkbox) {
+        checkbox.checked = true;
+      }
+    }
+    setCollapsed(typesCollapse, rule.types.length === 0);
+  } else {
+    for (const id of [
+      "#txtDescription",
+      "#txtOrigin",
+      "#txtTarget",
+      "#txtExclude",
+      "#txtExample",
+    ]) {
+      must<HTMLInputElement>(id).value = "";
+    }
+    setProcessRadio("");
+    must<HTMLInputElement>("#txtTestResult").value = "";
+    must<HTMLInputElement>("#cbTypeAll").checked = true;
+    must<HTMLInputElement>("#cbMethodAll").checked = true;
+    setCollapsed(methodsCollapse, true);
+    setCollapsed(typesCollapse, true);
+  }
+
   testRule();
-  $("#modalEditUserRule").modal("show");
+  showModal(must("#modalEditUserRule"));
+}
+
+function setProcessRadio(value: string | null | undefined): void {
+  for (const radio of document.querySelectorAll<HTMLInputElement>("input[name='process']")) {
+    radio.checked = radio.value === (value ?? "");
+  }
+}
+
+function selectedProcess(): string {
+  return document.querySelector<HTMLInputElement>("input[name='process']:checked")?.value ?? "";
 }
 
 /* Preview the rule against the example URL */
 function testRule(): void {
   const rule = new Rule();
   rule.fromObject({
-    origin: String($("#txtOrigin").val() ?? ""),
-    target: String($("#txtTarget").val() ?? ""),
-    exclude: String($("#txtExclude").val() ?? ""),
+    origin: must<HTMLInputElement>("#txtOrigin").value,
+    target: must<HTMLInputElement>("#txtTarget").value,
+    exclude: must<HTMLInputElement>("#txtExclude").value,
     enable: true,
-    process: String($("input:radio[name='process']:checked").val() ?? "") as RuleData["process"],
+    process: selectedProcess() as RuleData["process"],
   });
-  $("#txtTestResult").val(rule.redirect(String($("#txtExample").val() ?? "")) ?? "");
+  must<HTMLInputElement>("#txtTestResult").value =
+    rule.redirect(must<HTMLInputElement>("#txtExample").value) ?? "";
 }
 
 /* Load the settings into the page */
@@ -397,49 +501,63 @@ async function saveOptions(): Promise<void> {
   await writeSettings(settings);
 }
 
+function collectCheckedValues(containerId: string, attribute: string): string[] {
+  const values: string[] = [];
+  for (const checkbox of document.querySelectorAll<HTMLInputElement>(
+    `${containerId} input:checked`,
+  )) {
+    const value = checkbox.dataset[attribute];
+    if (value) {
+      values.push(value);
+    }
+  }
+  return values;
+}
+
 function init(): void {
   localizeDocument();
+  initModals();
 
-  $("#lnkCloudUpload").on("click", () => void uploadToCloud());
-  $("#lnkCloudDownload").on("click", () => void downloadFromCloud());
+  find("#lnkCloudUpload")?.addEventListener("click", () => void uploadToCloud());
+  find("#lnkCloudDownload")?.addEventListener("click", () => void downloadFromCloud());
 
-  $("#chbEnable").on("change", function () {
-    settings.enable = $(this).is(":checked");
+  must<HTMLInputElement>("#chbEnable").addEventListener("change", (event) => {
+    settings.enable = (event.target as HTMLInputElement).checked;
   });
-  $("#chbSync").on("change", function () {
-    settings.sync = $(this).prop("checked");
+  must<HTMLInputElement>("#chbSync").addEventListener("change", (event) => {
+    settings.sync = (event.target as HTMLInputElement).checked;
   });
-  $("#onlineInterval").on("change", function () {
-    const minutes = Number.parseInt(String($(this).val()), 10);
+  must<HTMLSelectElement>("#onlineInterval").addEventListener("change", (event) => {
+    const minutes = Number.parseInt((event.target as HTMLSelectElement).value, 10);
     settings.updateInterval = Number.isNaN(minutes) ? 60 : Math.max(1, minutes * 60);
   });
 
-  $("#btnReset").on("click", () => void reload());
-  $("#btnSave").on("click", () => void saveOptions());
-  $("#btnDownload").on("click", async () => {
+  must("#btnReset").addEventListener("click", () => void reload());
+  must("#btnSave").addEventListener("click", () => void saveOptions());
+  must("#btnDownload").addEventListener("click", async () => {
     const isDownloading = await sendMessage({ method: "isDownloading" });
-    $("#downloadState").text(NOTIFICATIONS.downloading ?? "");
+    setDownloadState(NOTIFICATIONS.downloading ?? "");
     if (!isDownloading) {
       await sendMessage({ method: "download" });
     }
   });
 
   /* Check all / uncheck all */
-  $("table thead :checkbox").on("click", function () {
-    const checked = $(this).is(":checked");
-    $(this)
-      .closest("table")
-      .find("tbody tr")
-      .each(function () {
-        $(this).find(":checkbox").first().prop("checked", checked);
-      });
-  });
+  for (const checkbox of document.querySelectorAll<HTMLInputElement>("table thead input")) {
+    checkbox.addEventListener("click", () => {
+      const table = checkbox.closest("table");
+      for (const rowCheckbox of table?.querySelectorAll<HTMLInputElement>("tbody input") ?? []) {
+        if (rowCheckbox === rowCheckbox.closest("tr")?.querySelector("input")) {
+          rowCheckbox.checked = checkbox.checked;
+        }
+      }
+    });
+  }
 
-  $("#btnAddOnlineURL").on("click", () => {
-    const hasEmpty = $("#tblOnlineURLs")
-      .find(":text")
-      .toArray()
-      .some((input) => String($(input).val()).trim() === "");
+  must("#btnAddOnlineURL").addEventListener("click", () => {
+    const hasEmpty = Array.from(
+      document.querySelectorAll<HTMLInputElement>("#tblOnlineURLs input[type='text']"),
+    ).some((input) => input.value.trim() === "");
     if (hasEmpty) {
       return;
     }
@@ -450,23 +568,15 @@ function init(): void {
     createURLRow(onlineURL);
   });
 
-  $("#btnDeleteOnlineURL").on("click", () => {
-    $("#tblOnlineURLs tbody tr").each(function () {
-      if ($(this).find(":checkbox").first().is(":checked")) {
-        settings.onlineURLs.splice($(this).closest("tr").index(), 1);
-        $(this).remove();
-      }
-    });
-    $("#tblOnlineURLs thead :checkbox").prop("checked", false);
+  must("#btnDeleteOnlineURL").addEventListener("click", () => {
+    deleteSelected("#tblOnlineURLs", (index) => settings.onlineURLs.splice(index, 1));
   });
 
-  $("#btnAddCustomRule").on("click", () => {
-    const hasEmpty = $("#tblCustomRules tbody tr")
-      .toArray()
-      .some((row) => {
-        const spans = $(row).find("span");
-        return (spans.get(1)?.innerText ?? "") === "" && (spans.get(2)?.innerText ?? "") === "";
-      });
+  must("#btnAddCustomRule").addEventListener("click", () => {
+    const hasEmpty = rowsOf("#tblCustomRules").some((row) => {
+      const spans = row.querySelectorAll("span");
+      return (spans[1]?.textContent ?? "") === "" && (spans[2]?.textContent ?? "") === "";
+    });
     if (hasEmpty) {
       return;
     }
@@ -476,97 +586,104 @@ function init(): void {
     showEditCustomRuleModal(rule);
   });
 
-  $("#btnEditCustomRule").on("click", () => {
-    const selectedIndex = $("#tblCustomRules tbody tr")
-      .toArray()
-      .findIndex((row) => $(row).find("input[type='checkbox']").first().is(":checked"));
+  must("#btnEditCustomRule").addEventListener("click", () => {
+    const selectedIndex = rowsOf("#tblCustomRules").findIndex(
+      (row) => row.querySelector<HTMLInputElement>("input[type='checkbox']")?.checked,
+    );
     if (selectedIndex >= 0) {
       editingRule = settings.customRules[selectedIndex] ?? null;
       showEditCustomRuleModal(editingRule);
     }
   });
 
-  $("#btnDeleteCustomRule").on("click", () => {
-    $("#tblCustomRules tbody tr").each(function () {
-      if ($(this).find(":checkbox").first().is(":checked")) {
-        settings.customRules.splice($(this).closest("tr").index(), 1);
-        $(this).remove();
+  must("#btnDeleteCustomRule").addEventListener("click", () => {
+    deleteSelected("#tblCustomRules", (index) => settings.customRules.splice(index, 1));
+  });
+
+  for (const button of document.querySelectorAll<HTMLButtonElement>("button.remove")) {
+    button.addEventListener("click", () => {
+      const input = button.closest("div")?.querySelector<HTMLInputElement>("input[type='text']");
+      if (input) {
+        input.value = "";
       }
     });
-    $("#tblCustomRules thead :checkbox").prop("checked", false);
+  }
+
+  for (const id of ["#txtExample", "#txtOrigin", "#txtTarget", "#txtExclude"]) {
+    find(id)?.addEventListener("input", testRule);
+  }
+  for (const radio of document.querySelectorAll("input[name='process']")) {
+    radio.addEventListener("change", testRule);
+  }
+
+  must<HTMLInputElement>("#cbTypeAll").addEventListener("change", (event) => {
+    setCollapsed(must("#divTypes"), (event.target as HTMLInputElement).checked);
+    for (const checkbox of document.querySelectorAll<HTMLInputElement>("#divTypes input")) {
+      checkbox.checked = false;
+    }
   });
 
-  $("button.remove").on("click", function () {
-    $(this).closest("div").find(":text").first().val("");
+  must<HTMLInputElement>("#cbMethodAll").addEventListener("change", (event) => {
+    setCollapsed(must("#divMethods"), (event.target as HTMLInputElement).checked);
+    for (const checkbox of document.querySelectorAll<HTMLInputElement>("#divMethods input")) {
+      checkbox.checked = false;
+    }
   });
 
-  $("#txtExample, #txtOrigin, #txtTarget, #txtExclude").on("input", testRule);
-  $("input:radio[name='process']").on("change", testRule);
-
-  $("#cbTypeAll").on("change", function () {
-    $("#divTypes").collapse($(this).is(":checked") ? "hide" : "show");
-    $("#divTypes input[type='checkbox']").prop("checked", false);
-  });
-
-  $("#cbMethodAll").on("change", function () {
-    $("#divMethods").collapse($(this).is(":checked") ? "hide" : "show");
-    $("#divMethods input[type='checkbox']").prop("checked", false);
-  });
-
-  $("#btnConfirmCustomRule").on("click", () => {
-    if (String($("#txtOrigin").val() ?? "") === "") {
-      $("#txtOrigin").trigger("focus");
+  must("#btnConfirmCustomRule").addEventListener("click", () => {
+    const origin = must<HTMLInputElement>("#txtOrigin");
+    if (origin.value === "") {
+      origin.focus();
       return;
     }
-    if (String($("#txtTarget").val() ?? "") === "") {
-      $("#txtTarget").trigger("focus");
+    const targetURL = must<HTMLInputElement>("#txtTarget");
+    if (targetURL.value === "") {
+      targetURL.focus();
       return;
     }
-    const target = editingRule ?? new Rule();
-    if (!editingRule) {
-      target.enable = true;
-      settings.customRules.push(target);
-      editingRule = target;
+
+    let rule = editingRule;
+    if (!rule) {
+      rule = new Rule();
+      rule.enable = true;
+      settings.customRules.push(rule);
+      editingRule = rule;
     }
-    target.description = String($("#txtDescription").val() ?? "");
-    target.origin = String($("#txtOrigin").val() ?? "");
-    target.target = String($("#txtTarget").val() ?? "");
-    target.exclude = String($("#txtExclude").val() ?? "");
-    target.example = String($("#txtExample").val() ?? "");
-    target.process = String($("input:radio[name='process']:checked").val() ?? "");
-    target.methods = [];
-    if (!$("#cbMethodAll").is(":checked")) {
-      $("#divMethods input[type='checkbox']")
-        .toArray()
-        .filter((input) => $(input).is(":checked"))
-        .forEach((input) => target.methods.push(String($(input).data("method"))));
-    }
-    target.types = [];
-    if (!$("#cbTypeAll").is(":checked")) {
-      $("#divTypes input[type='checkbox']")
-        .toArray()
-        .filter((input) => $(input).is(":checked"))
-        .forEach((input) => target.types.push(String($(input).data("type"))));
-    }
+    rule.description = must<HTMLInputElement>("#txtDescription").value;
+    rule.origin = origin.value;
+    rule.target = targetURL.value;
+    rule.exclude = must<HTMLInputElement>("#txtExclude").value;
+    rule.example = must<HTMLInputElement>("#txtExample").value;
+    rule.process = selectedProcess();
+    rule.methods = must<HTMLInputElement>("#cbMethodAll").checked
+      ? []
+      : collectCheckedValues("#divMethods", "method");
+    rule.types = must<HTMLInputElement>("#cbTypeAll").checked
+      ? []
+      : collectCheckedValues("#divTypes", "type");
+
     displayAll();
-    $("#modalEditUserRule").modal("hide");
+    hideModal(must("#modalEditUserRule"));
   });
 
-  $("#btnViewCustomeRule").on("click", () => {
+  must("#btnViewCustomeRule").addEventListener("click", () => {
     const userRules = { version: "1.0", rules: settings.customRules };
-    $("#modalViewUserRule textarea").text(JSON.stringify(userRules, null, 2));
-    $("#modalViewUserRule").modal("show");
+    must<HTMLTextAreaElement>("#modalViewUserRule textarea").value = JSON.stringify(
+      userRules,
+      null,
+      2,
+    );
+    showModal(must("#modalViewUserRule"));
   });
 
   browser.runtime.onMessage.addListener((message: ExtensionMessage) => {
     if (message.method === "downloaded") {
-      $("#downloadState").text("");
+      setDownloadState("");
       return undefined;
     }
     if (message.method === "downloadError" || message.method === "parseError") {
       const urls = Array.isArray(message.args) ? message.args : [];
-      const text = [getMessage(message.method), ...urls.map(String)].join("\n");
-      alert(text);
+      alert([getMessage(message.method), ...urls.map(String)].join("\n"));
       return undefined;
     }
     console.error("Unknown method", message.method);
@@ -580,6 +697,22 @@ function init(): void {
   });
 
   void reload();
+}
+
+/** Delete every row whose first checkbox is selected. */
+function deleteSelected(tableId: string, removeAt: (index: number) => void): void {
+  const rows = rowsOf(tableId);
+  for (let index = rows.length - 1; index >= 0; index--) {
+    const row = rows[index]!;
+    if (row.querySelector<HTMLInputElement>("input[type='checkbox']")?.checked) {
+      removeAt(index);
+      row.remove();
+    }
+  }
+  const checkAll = document.querySelector<HTMLInputElement>(`${tableId} thead input`);
+  if (checkAll) {
+    checkAll.checked = false;
+  }
 }
 
 onReady(init);

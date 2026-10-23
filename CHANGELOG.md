@@ -4,11 +4,13 @@
 - 后台改为事件页脚本，阻塞式 `webRequest` 用法随之改为异步；设置改为带就绪 Promise 的缓存，避免事件页唤醒后读到空配置
 - 源码迁移到 TypeScript 与 ES 模块（`src/shared`、`src/background`、`src/options`、`src/popup`、`src/cloud`），由 esbuild 打包
 - 抛弃 Grunt / Bower，改用 pnpm + esbuild + `web-ext`（`run` / `lint` / `build` / `sign`）
-- jQuery 3.3 → 3.7.1、Bootstrap 3.3.7 → 3.4.1，改为构建时从 `node_modules` 复制
+- Bootstrap 3.3.7 → 3.4.1，改为构建时从 `node_modules` 复制
+- 完全移除 jQuery 与 Bootstrap JavaScript，配置页改为原生 DOM，弹窗/折叠由 `src/shared/ui.ts` 实现
 - 请求改用 `fetch`，移除 jQuery.ajax 与 `jquery.blockUI`
 - 更严格的正则处理：非法表达式不再抛异常，只忽略该规则
-- 增加 Vitest 测试（规则引擎、在线规则解析、manifest、后台重定向与下载流程）
+- 增加 Vitest 测试（规则引擎、在线规则解析、manifest、后台重定向与下载流程、配置页与弹窗 DOM）
 - 移除 Chrome / Edge 构建
+- 清理仓库：删除 Grunt、Bower 与 PSD 设计稿备份
 
 **v1.3.12** 处理死循环问题
 

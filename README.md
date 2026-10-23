@@ -137,9 +137,10 @@ URLRedirector
     build/                  # esbuild 构建、打包、签名脚本
     tests/                  # Vitest 测试
 
-依赖升级说明：
+依赖说明：
 
-- Bootstrap 3.4.1 / jQuery 3.7.1 在构建时从 `node_modules` 复制到产物中，`src` 不再存放第三方资源。
+- 已移除 jQuery 与 Bootstrap JavaScript：交互逻辑为原生 DOM，弹窗、折叠等少量行为由 `src/shared/ui.ts` 提供。
+- 仅保留 Bootstrap 3.4.1 的样式表与字体，构建时从 `node_modules` 复制到产物中，`src` 不存放第三方资源。
 - 页面脚本为 ES 模块并由 esbuild 打包，后台脚本打包成经典脚本（Firefox 目前仍以事件页运行后台脚本，不支持 service worker）。
 - 新增依赖前请确认其兼容 Firefox 140+ 与 Manifest V3。
 

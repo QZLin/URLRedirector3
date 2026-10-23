@@ -6,6 +6,6 @@ export default {
   },
   run: {
     startUrl: ["about:addons"],
-    firefox: "firefoxdeveloperedition"
+    firefox: "firefoxdeveloperedition",
   },
 };

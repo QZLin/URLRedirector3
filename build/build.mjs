@@ -36,10 +36,7 @@ const STATIC_FILES = [
 
 /** Third party assets, vendored at build time so that `src` stays dependency free. */
 const VENDOR_FILES = [
-  ["node_modules/jquery/dist/jquery.min.js", "static/js/jquery.js"],
-  ["node_modules/bootstrap/dist/js/bootstrap.min.js", "static/js/bootstrap.js"],
   ["node_modules/bootstrap/dist/css/bootstrap.min.css", "static/css/bootstrap.min.css"],
-  ["node_modules/bootstrap/dist/css/bootstrap-theme.min.css", "static/css/bootstrap-theme.min.css"],
 ];
 
 /** esbuild entry points. */

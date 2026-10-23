@@ -9,6 +9,7 @@ bower_components/
 coverage/
 *.log
 package-lock.json
+*.psd
 
 # Local configuration (AMO credentials)
 .env
