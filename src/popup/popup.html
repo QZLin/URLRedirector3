@@ -1,45 +1,47 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-cn">
-<head>
-    <meta charset="utf-8">
-    <link rel="stylesheet" href="../static/css/bootstrap.min.css">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../static/css/bootstrap.min.css" />
     <style>
-        html, body {
-            width: 180px;
-            height: 100px;
-        }
-        .main {
-            width: 160px;
-            margin-top: 10px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-        .item {
-            padding: 3px;
-        }
+      html,
+      body {
+        width: 180px;
+        height: 100px;
+      }
+      .main {
+        width: 160px;
+        margin-top: 10px;
+        margin-left: auto;
+        margin-right: auto;
+      }
+      .item {
+        padding: 3px;
+      }
     </style>
-</head>
-<body>
-<div class="main">
-    <div class="item">
-        <input type="checkbox" id="chbEnable">
+  </head>
+  <body>
+    <div class="main">
+      <div class="item">
+        <input type="checkbox" id="chbEnable" />
         <label for="chbEnable" class="i18n" data-i18n_text="redirect">开启重定向</label>
-        <button type="button" id="btnOptions" class="btn btn-info btn-xs i18n" data-i18n_attr_title="options" title="配置">
-            <i class="glyphicon glyphicon-cog"></i>
+        <button
+          type="button"
+          id="btnOptions"
+          class="btn btn-info btn-xs i18n"
+          data-i18n_attr_title="options"
+          title="配置"
+        >
+          <i class="glyphicon glyphicon-cog"></i>
         </button>
-    </div>
-    <div style="height: 1px; width: 100%; background-color: black"></div>
-    <div class="item">
-        <label><span class="i18n" data-i18n_text="updatedAt">更新时间</span></label><br>
+      </div>
+      <div style="height: 1px; width: 100%; background-color: black"></div>
+      <div class="item">
+        <label><span class="i18n" data-i18n_text="updatedAt">更新时间</span></label
+        ><br />
         <span id="updatedAt"></span>
+      </div>
     </div>
-</div>
-<script src="../static/js/jquery.js"></script>
-<script src="../static/js/bootstrap.js"></script>
-<script src="../common.js"></script>
-<script src="../model.js"></script>
-<script src="../storage.js"></script>
-<script src="../i18n.js"></script>
-<script src="popup.js"></script>
-</body>
+    <script type="module" src="./popup.js"></script>
+  </body>
 </html>

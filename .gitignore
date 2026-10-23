@@ -1,5 +1,14 @@
-.idea/
+# Firefox extension artifacts
+dist/
+web-ext-artifacts/
+
+# Tooling
 node_modules/
 bower_components/
-dist/
+.idea/
+coverage/
+*.log
 package-lock.json
+
+# Local configuration (AMO credentials)
+.env

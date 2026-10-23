@@ -1,371 +1,773 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-cn">
-<head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>URLRedirector</title>
-    <link rel="icon" href="../static/images/r48.png"/>
-    <link rel="stylesheet" href="../static/css/bootstrap.min.css"/>
-</head>
-<body>
-<div class="container">
-    <h1>
+    <link rel="icon" href="../static/images/r48.png" />
+    <link rel="stylesheet" href="../static/css/bootstrap.min.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>
         <span class="i18n" data-i18n_text="optionsTitle">URLRedirector 配置</span>
         <span class="small" id="version"></span>
-        <a id="homepage" class="small" target="_blank"><span class="i18n" data-i18n_attr_title="projectHomepage" title="帮助主页"><i class="glyphicon glyphicon-home"></i></span></a>
-        <a id="addonPage" class="small i18n" target="_blank" data-i18n_attr_title="reviews" title="评论"><i class="glyphicon glyphicon-thumbs-up"></i> </a>
-    </h1>
-    <hr>
-    <div class="pull-right" style="display: inline-block">
-        <button type="button" id="btnSave" class="btn btn-info i18n" data-i18n_attr_title="save" title="保存">
-            <i class="glyphicon glyphicon-floppy-disk"></i> <span class="i18n" data-i18n_text="save">保存</span>
+        <a id="homepage" class="small" target="_blank"
+          ><span class="i18n" data-i18n_attr_title="projectHomepage" title="帮助主页"
+            ><i class="glyphicon glyphicon-home"></i></span
+        ></a>
+        <a
+          id="addonPage"
+          class="small i18n"
+          target="_blank"
+          data-i18n_attr_title="reviews"
+          title="评论"
+          ><i class="glyphicon glyphicon-thumbs-up"></i>
+        </a>
+      </h1>
+      <hr />
+      <div class="pull-right" style="display: inline-block">
+        <button
+          type="button"
+          id="btnSave"
+          class="btn btn-info i18n"
+          data-i18n_attr_title="save"
+          title="保存"
+        >
+          <i class="glyphicon glyphicon-floppy-disk"></i>
+          <span class="i18n" data-i18n_text="save">保存</span>
         </button>
-        <button type="button" id="btnReset" class="btn btn-warning i18n" data-i18n_attr_title="reset" title="重置">
-            <i class="glyphicon glyphicon-refresh"></i> <span class="i18n" data-i18n_text="reset">重置</span>
+        <button
+          type="button"
+          id="btnReset"
+          class="btn btn-warning i18n"
+          data-i18n_attr_title="reset"
+          title="重置"
+        >
+          <i class="glyphicon glyphicon-refresh"></i>
+          <span class="i18n" data-i18n_text="reset">重置</span>
         </button>
-    </div>
-    <div>
-    <p><span class="i18n" data-i18n_text="updatedAt">更新时间</span>: <span id="lblUpdatedAt"></span></p>
-    <div>
-        <label><input type="checkbox" id="chbEnable"> <span class="i18n" data-i18n_text="redirect">开启重定向</span></label>
-        <label id="lblSync" style="margin-left: 10px"><input type="checkbox" id="chbSync"> <span class="i18n" data-i18n_text="browserSync">浏览器同步</span></label>
-        <div style="margin-left: 10px;display: inline-block">
+      </div>
+      <div>
+        <p>
+          <span class="i18n" data-i18n_text="updatedAt">更新时间</span>:
+          <span id="lblUpdatedAt"></span>
+        </p>
+        <div>
+          <label
+            ><input type="checkbox" id="chbEnable" />
+            <span class="i18n" data-i18n_text="redirect">开启重定向</span></label
+          >
+          <label id="lblSync" style="margin-left: 10px"
+            ><input type="checkbox" id="chbSync" />
+            <span class="i18n" data-i18n_text="browserSync">浏览器同步</span></label
+          >
+          <div style="margin-left: 10px; display: inline-block">
             <label for="sltCloud" class="i18n" data-i18n_text="cloud">云</label>
             <select id="sltCloud">
-                <option value="onedrive">OneDrive</option>
+              <option value="onedrive">OneDrive</option>
             </select>
             <div class="btn-group">
-              <a id="lnkCloudUpload" class="btn btn-sm btn-default i18n" data-i18n_attr_title="upload" title="上传"><i class="glyphicon glyphicon-upload"></i></a>
-              <a id="lnkCloudDownload" class="btn btn-sm btn-default i18n" data-i18n_attr_title="download" title="下载"><i class="glyphicon glyphicon-download"></i></a>
+              <a
+                id="lnkCloudUpload"
+                class="btn btn-sm btn-default i18n"
+                data-i18n_attr_title="upload"
+                title="上传"
+                ><i class="glyphicon glyphicon-upload"></i
+              ></a>
+              <a
+                id="lnkCloudDownload"
+                class="btn btn-sm btn-default i18n"
+                data-i18n_attr_title="download"
+                title="下载"
+                ><i class="glyphicon glyphicon-download"></i
+              ></a>
             </div>
             <span id="spanCloudMessage"></span>
+          </div>
         </div>
-    </div>
-    </div>
-    <div>
+      </div>
+      <div>
         <h2 style="display: inline-block" class="i18n" data-i18n_text="onlineURLs">在线规则</h2>
         <div class="btn-group btn-group-sm" style="display: inline-block">
-            <button type="button" id="btnAddOnlineURL" class="btn btn-default i18n" data-i18n_attr_title="add" title="添加">
-                <i class="glyphicon glyphicon-plus-sign"></i>
-            </button>
-            <button type="button" id="btnDeleteOnlineURL" class="btn btn-default i18n" data-i18n_attr_title="delete" title="删除">
-                <i class="glyphicon glyphicon-minus-sign"></i>
-            </button>
+          <button
+            type="button"
+            id="btnAddOnlineURL"
+            class="btn btn-default i18n"
+            data-i18n_attr_title="add"
+            title="添加"
+          >
+            <i class="glyphicon glyphicon-plus-sign"></i>
+          </button>
+          <button
+            type="button"
+            id="btnDeleteOnlineURL"
+            class="btn btn-default i18n"
+            data-i18n_attr_title="delete"
+            title="删除"
+          >
+            <i class="glyphicon glyphicon-minus-sign"></i>
+          </button>
         </div>
 
         <label for="onlineInterval" class="i18n" data-i18n_text="interval">更新间隔</label>
         <select id="onlineInterval">
-            <option value="15" class="i18n" data-i18n_text="interval_15minutes">15 分钟</option>
-            <option value="30" class="i18n" data-i18n_text="interval_30minutes">30 分钟</option>
-            <option value="45" class="i18n" data-i18n_text="interval_45minutes">45 分钟</option>
-            <option value="60" class="i18n" data-i18n_text="interval_1hours">1 小时</option>
-            <option value="180" class="i18n" data-i18n_text="interval_3hours">3 小时</option>
-            <option value="360" class="i18n" data-i18n_text="interval_6hours">6 小时</option>
-            <option value="720" class="i18n" data-i18n_text="interval_12hours">12 小时</option>
-            <option value="1440" class="i18n" data-i18n_text="interval_1days">1 天</option>
+          <option value="15" class="i18n" data-i18n_text="interval_15minutes">15 分钟</option>
+          <option value="30" class="i18n" data-i18n_text="interval_30minutes">30 分钟</option>
+          <option value="45" class="i18n" data-i18n_text="interval_45minutes">45 分钟</option>
+          <option value="60" class="i18n" data-i18n_text="interval_1hours">1 小时</option>
+          <option value="180" class="i18n" data-i18n_text="interval_3hours">3 小时</option>
+          <option value="360" class="i18n" data-i18n_text="interval_6hours">6 小时</option>
+          <option value="720" class="i18n" data-i18n_text="interval_12hours">12 小时</option>
+          <option value="1440" class="i18n" data-i18n_text="interval_1days">1 天</option>
         </select>
-        <button type="button" id="btnDownload" class="btn btn-sm btn-default i18n" data-i18n_attr_title="download" title="下载在线规则">
-            <i class="glyphicon glyphicon-save"></i>
+        <button
+          type="button"
+          id="btnDownload"
+          class="btn btn-sm btn-default i18n"
+          data-i18n_attr_title="download"
+          title="下载在线规则"
+        >
+          <i class="glyphicon glyphicon-save"></i>
         </button>
         <label id="downloadState"></label>
 
         <table id="tblOnlineURLs" class="table table-bordered table-striped">
-            <thead>
+          <thead>
             <tr>
-                <th style="width: 20px">
-                    <input type="checkbox" class="checkbox" style="margin: auto">
-                </th>
-                <th colspan="2" class="i18n" data-i18n_text="onlineURL">在线规则 URL</th>
-                <th style="width: 50px" class="i18n" data-i18n_text="auto">自动</th>
-                <th style="width: 50px" class="i18n" data-i18n_text="enable">启用</th>
-                <th style="width: 80px" class="i18n" data-i18n_text="priority">优先顺序</th>
+              <th style="width: 20px">
+                <input type="checkbox" class="checkbox" style="margin: auto" />
+              </th>
+              <th colspan="2" class="i18n" data-i18n_text="onlineURL">在线规则 URL</th>
+              <th style="width: 50px" class="i18n" data-i18n_text="auto">自动</th>
+              <th style="width: 50px" class="i18n" data-i18n_text="enable">启用</th>
+              <th style="width: 80px" class="i18n" data-i18n_text="priority">优先顺序</th>
             </tr>
-            </thead>
-            <tbody></tbody>
+          </thead>
+          <tbody></tbody>
         </table>
+      </div>
 
-    </div>
-
-    <div>
+      <div>
         <h2 style="display: inline-block" class="i18n" data-i18n_text="userRules">用户规则</h2>
         <div class="btn-group btn-group-sm" style="display: inline-block">
-            <button type="button" id="btnAddCustomRule" class="btn btn-default i18n" data-i18n_attr_title="add" title="添加">
-                <i class="glyphicon glyphicon-plus-sign"></i>
-            </button>
-            <button type="button" id="btnEditCustomRule" class="btn btn-default i18n" data-i18n_attr_title="edit" title="编辑">
-                <i class="glyphicon glyphicon-edit"></i>
-            </button>
-            <button type="button" id="btnDeleteCustomRule" class="btn btn-default i18n" data-i18n_attr_title="delete" title="删除">
-                <i class="glyphicon glyphicon-minus-sign"></i>
-            </button>
+          <button
+            type="button"
+            id="btnAddCustomRule"
+            class="btn btn-default i18n"
+            data-i18n_attr_title="add"
+            title="添加"
+          >
+            <i class="glyphicon glyphicon-plus-sign"></i>
+          </button>
+          <button
+            type="button"
+            id="btnEditCustomRule"
+            class="btn btn-default i18n"
+            data-i18n_attr_title="edit"
+            title="编辑"
+          >
+            <i class="glyphicon glyphicon-edit"></i>
+          </button>
+          <button
+            type="button"
+            id="btnDeleteCustomRule"
+            class="btn btn-default i18n"
+            data-i18n_attr_title="delete"
+            title="删除"
+          >
+            <i class="glyphicon glyphicon-minus-sign"></i>
+          </button>
         </div>
         <div class="btn-group btn-group-sm" style="display: inline-block">
-            <button type="button" id="btnViewCustomeRule" class="btn btn-default i18n" data-i18n_attr_title="asJSON" title="显示为 JSON 格式">
-                <i class="glyphicon glyphicon-export"></i>
-            </button>
+          <button
+            type="button"
+            id="btnViewCustomeRule"
+            class="btn btn-default i18n"
+            data-i18n_attr_title="asJSON"
+            title="显示为 JSON 格式"
+          >
+            <i class="glyphicon glyphicon-export"></i>
+          </button>
         </div>
         <table id="tblCustomRules" class="table table-bordered table-striped">
-            <thead>
+          <thead>
             <tr>
-                <th style="width: 20px">
-                    <input type="checkbox" class="checkbox"/>
-                </th>
-                <th class="i18n" data-i18n_text="description">描述</th>
-                <th class="i18n" data-i18n_text="origin">原始地址</th>
-                <th class="i18n" data-i18n_text="target">目标地址</th>
-                <th style="width: 50px" class="i18n" data-i18n_text="enable">启用</th>
-                <th style="width: 80px" class="i18n" data-i18n_text="priority">优先顺序</th>
+              <th style="width: 20px">
+                <input type="checkbox" class="checkbox" />
+              </th>
+              <th class="i18n" data-i18n_text="description">描述</th>
+              <th class="i18n" data-i18n_text="origin">原始地址</th>
+              <th class="i18n" data-i18n_text="target">目标地址</th>
+              <th style="width: 50px" class="i18n" data-i18n_text="enable">启用</th>
+              <th style="width: 80px" class="i18n" data-i18n_text="priority">优先顺序</th>
             </tr>
-            </thead>
-            <tbody></tbody>
+          </thead>
+          <tbody></tbody>
         </table>
+      </div>
     </div>
-</div>
 
-<!-- View online url -->
-<div id="modalViewOnlineURL" class="modal fade">
-    <div class="modal-dialog">
+    <!-- View online url -->
+    <div id="modalViewOnlineURL" class="modal fade">
+      <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header">
-                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span
-                    class="sr-only i18n" data-i18n_text="close">关闭</span></button>
-                <h4 class="modal-title">
-                    <span class="i18n" data-i18n_text="details">详情</span>
-                    <a target="_blank" id="linkOnlineURL" class="small"><i class="glyphicon glyphicon-file"></i><span class="i18n" data-i18n_text="file">查看文件</span></a></h4>
-            </div>
-            <div class="modal-body" style="overflow-y: scroll">
-                <table class="table table-bordered table-striped">
-                  <thead>
-                  <tr>
-                    <th style="width: 50px" class="i18n" data-i18n_text="enable">启用</th>
-                    <th class="i18n" data-i18n_text="originAndTarget">源地址和目标地址</th>
-                  </tr>
-                  </thead>
-                  <tbody></tbody>
-                </table>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-default i18n" data-i18n_text="close" data-dismiss="modal">关闭</button>
-            </div>
-        </div><!-- /.modal-content -->
-    </div><!-- /.modal-dialog -->
-</div><!-- /.modal -->
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal">
+              <span aria-hidden="true">&times;</span
+              ><span class="sr-only i18n" data-i18n_text="close">关闭</span>
+            </button>
+            <h4 class="modal-title">
+              <span class="i18n" data-i18n_text="details">详情</span>
+              <a target="_blank" id="linkOnlineURL" class="small"
+                ><i class="glyphicon glyphicon-file"></i
+                ><span class="i18n" data-i18n_text="file">查看文件</span></a
+              >
+            </h4>
+          </div>
+          <div class="modal-body" style="overflow-y: scroll">
+            <table class="table table-bordered table-striped">
+              <thead>
+                <tr>
+                  <th style="width: 50px" class="i18n" data-i18n_text="enable">启用</th>
+                  <th class="i18n" data-i18n_text="originAndTarget">源地址和目标地址</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-default i18n"
+              data-i18n_text="close"
+              data-dismiss="modal"
+            >
+              关闭
+            </button>
+          </div>
+        </div>
+        <!-- /.modal-content -->
+      </div>
+      <!-- /.modal-dialog -->
+    </div>
+    <!-- /.modal -->
 
-<!-- Modal of editing user rule -->
-<div id="modalEditUserRule" class="modal fade">
-    <div class="modal-dialog">
+    <!-- Modal of editing user rule -->
+    <div id="modalEditUserRule" class="modal fade">
+      <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header">
-                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span
-                    class="sr-only i18n" data-i18n_text="close">关闭</span></button>
-                <h4 class="modal-title i18n" data-i18n_text="edit">编辑</h4>
-            </div>
-            <div class="modal-body">
-                <!--规则描述-->
-                <div class="form-horizontal" role="form">
-                    <div class="form-group">
-                        <label for="txtDescription" class="col-sm-2 control-label i18n" data-i18n_text="description">规则描述</label>
-                        <div class="col-sm-10">
-                            <div class="input-group">
-                                <input type="text" class="form-control i18n" id="txtDescription" data-i18n_attr_placeholder="descriptionPlaceholder" placeholder="规则描述，可选">
-                                <span class="input-group-btn">
-                                    <button class="btn btn-default remove"><i class="glyphicon glyphicon-remove-sign"></i></button>
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                    <!--地址示例-->
-                    <div class="form-group">
-                        <label class="col-sm-2 control-label i18n" data-i18n_text="example">地址示例</label>
-                        <div class="col-sm-10">
-                            <div class="input-group">
-                                <input type="text" class="form-control i18n" id="txtExample" data-i18n_attr_placeholder="examplePlaceholder" placeholder="地址示例，可选">
-                                <span class="input-group-btn">
-                                    <button class="btn btn-default remove"><i class="glyphicon glyphicon-remove-sign"></i></button>
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                    <!--原始地址-->
-                    <div class="form-group">
-                        <label for="txtOrigin" class="col-sm-2 control-label i18n" data-i18n_text="origin">原始地址</label>
-                        <div class="col-sm-10">
-                            <div class="input-group">
-                                <input type="text" class="form-control i18n" id="txtOrigin" data-i18n_attr_placeholder="originPlaceholder" placeholder="原始地址正则表达式，必需">
-                                <span class="input-group-btn">
-                                    <button class="btn btn-default remove"><i class="glyphicon glyphicon-remove-sign"></i></button>
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                    <!--目标地址-->
-                    <div class="form-group">
-                        <label for="txtTarget" class="col-sm-2 control-label i18n" data-i18n_text="target">目标地址</label>
-                        <div class="col-sm-10">
-                            <div class="input-group">
-                                <input type="text" class="form-control i18n" id="txtTarget" data-i18n_attr_placeholder="targetPlaceholder" placeholder="目标地址正则表达式，必需">
-                                <span class="input-group-btn">
-                                    <button class="btn btn-default remove"><i class="glyphicon glyphicon-remove-sign"></i></button>
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                    <!--排除地址-->
-                    <div class="form-group">
-                        <label for="txtExclude" class="col-sm-2 control-label i18n" data-i18n_text="exclude">排除地址</label>
-                        <div class="col-sm-10">
-                            <div class="input-group">
-                                <input type="text" class="form-control i18n" id="txtExclude" data-i18n_attr_placeholder="excludePlaceholder" placeholder="排除地址正则表达式，可选">
-                                <span class="input-group-btn">
-                                    <button class="btn btn-default remove"><i class="glyphicon glyphicon-remove-sign"></i></button>
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                    <!--匹配处理-->
-                    <div class="form-group">
-                        <label class="col-sm-2 control-label i18n" data-i18n_text="process">匹配处理</label>
-                        <div class="col-sm-10">
-                            <div class="row">
-                                <label class="col-sm-6"><input type="radio" name="process" value=""> <span class="i18n" data-i18n_text="none">无</span></label>
-                            </div>
-                            <div class="row">
-                                <label class="col-sm-6"><input type="radio" name="process" value="urlEncode"> <span class="i18n" data-i18n_text="urlencode">URL编码</span></label>
-                                <label class="col-sm-6"><input type="radio" name="process" value="urlDecode"> <span class="i18n" data-i18n_text="urldecode">URL解码</span></label>
-                            </div>
-                            <div class="row">
-                                <label class="col-sm-6"><input type="radio" name="process" value="base64Encode"> <span class="i18n" data-i18n_text="base64encode">Base64编码</span></label>
-                                <label class="col-sm-6"><input type="radio" name="process" value="base64Decode"> <span class="i18n" data-i18n_text="base64decode">Base64解码</span></label>
-                            </div>
-                        </div>
-                    </div>
-                    <!--测试结果-->
-                    <div class="form-group">
-                        <label class="col-sm-2 control-label i18n" data-i18n_text="result">测试结果</label>
-                        <div class="col-sm-10">
-                            <input type="text" class="form-control i18n" id="txtTestResult" data-i18n_attr_placeholder="resultPlaceholder" readonly placeholder="测试结果">
-                        </div>
-                    </div>
-                    <!--请求方法-->
-                    <div class="form-group">
-                        <label class="col-sm-2 control-label i18n" data-i18n_text="methods">请求方法</label>
-                        <div class="col-sm-10">
-                            <div class="checkbox-inline"><label><input type="checkbox" id="cbMethodAll" checked><span class="i18n" data-i18n_text="allMethods">全部方法</span></label></div>
-                            <div class="collapse" id="divMethods">
-                                <div class="container-fluid">
-                                    <div class="row">
-                                        <div class="col-sm-3 checkbox-inline"><label><input type="checkbox" id="cbMethod_GET" data-method="GET">GET</label></div>
-                                        <div class="col-sm-3 checkbox-inline"><label><input type="checkbox" id="cbMethod_POST" data-method="POST">POST</label></div>
-                                        <div class="col-sm-3 checkbox-inline"><label><input type="checkbox" id="cbMethod_PUT" data-method="PUT">PUT</label></div>
-                                    </div>
-                                    <div class="row">
-                                        <div class="col-sm-3 checkbox-inline"><label><input type="checkbox" id="cbMethod_PATCH" data-method="PATCH">PATCH</label></div>
-                                        <div class="col-sm-3 checkbox-inline"><label><input type="checkbox" id="cbMethod_HEAD" data-method="HEAD">HEAD</label></div>
-                                        <div class="col-sm-3 checkbox-inline"><label><input type="checkbox" id="cbMethod_DELETE" data-method="DELETE">DELETE</label></div>
-                                    </div>
-                                </div>
-
-                            </div>
-                        </div>
-                    </div>
-                    <!--资源类型-->
-                    <div class="form-group">
-                        <label class="col-sm-2 control-label i18n" data-i18n_text="types">资源类型</label>
-                        <div class="col-sm-10">
-                            <div class="checkbox-inline">
-                                <label><input type="checkbox" id="cbTypeAll" checked><span class="i18n" data-i18n_text="allTypes">全部类型</span></label>
-                                <a id="resourceType" class="small i18n" data-i18n_text="typesDescription" target="_blank">类型说明</a></div>
-                            <div class="collapse" id="divTypes">
-                                <div class="container-fluid">
-                                    <div class="row">
-                                        <div class="col-sm-3 checkbox-inline"><label><input type="checkbox" id="cbType_main_frame" data-type="main_frame">main_frame</label></div>
-                                        <div class="col-sm-3 checkbox-inline"><label><input type="checkbox" id="cbType_sub_frame" data-type="sub_frame">sub_frame</label></div>
-                                        <div class="col-sm-3 checkbox-inline"><label><input type="checkbox" id="cbType_stylesheet" data-type="stylesheet">stylesheet</label></div>
-                                    </div>
-                                    <div class="row">
-                                        <div class="col-sm-3 checkbox-inline"><label><input type="checkbox" id="cbType_script" data-type="script">script</label></div>
-                                        <div class="col-sm-3 checkbox-inline"><label><input type="checkbox" id="cbType_image" data-type="image">image</label></div>
-                                        <div class="col-sm-3 checkbox-inline"><label><input type="checkbox" id="cbType_object" data-type="object">object</label></div>
-                                    </div>
-                                    <div class="row">
-                                        <div class="col-sm-3 checkbox-inline"><label><input type="checkbox" id="cbType_xmlhttprequest" data-type="xmlhttprequest">xmlhttprequest</label></div>
-                                        <div class="col-sm-3 checkbox-inline"><label><input type="checkbox" id="cbType_xbl" data-type="xbl">xbl</label></div>
-                                        <div class="col-sm-3 checkbox-inline"><label><input type="checkbox" id="cbType_xslt" data-type="xslt">xslt</label></div>
-                                    </div>
-                                    <div class="row">
-                                        <div class="col-sm-3 checkbox-inline"><label><input type="checkbox" id="cbType_ping" data-type="ping">ping</label></div>
-                                        <div class="col-sm-3 checkbox-inline"><label><input type="checkbox" id="cbType_beacon" data-type="beacon">beacon</label></div>
-                                        <div class="col-sm-3 checkbox-inline"><label><input type="checkbox" id="cbType_xml_dtd" data-type="xml_dtd">xml_dtd</label></div>
-                                    </div>
-                                    <div class="row">
-                                        <div class="col-sm-3 checkbox-inline"><label><input type="checkbox" id="cbType_font" data-type="font">font</label></div>
-                                        <div class="col-sm-3 checkbox-inline"><label><input type="checkbox" id="cbType_media" data-type="media">media</label></div>
-                                        <div class="col-sm-3 checkbox-inline"><label><input type="checkbox" id="cbType_websocket" data-type="websocket">websocket</label></div>
-                                    </div>
-                                    <div class="row">
-                                         <div class="col-sm-3 checkbox-inline"><label><input type="checkbox" id="cbType_csp_report" data-type="csp_report">csp_report</label></div>
-                                        <div class="col-sm-3 checkbox-inline"><label><input type="checkbox" id="cbType_imageset" data-type="imageset">imageset</label></div>
-                                        <div class="col-sm-3 checkbox-inline"><label><input type="checkbox" id="cbType_web_manifest" data-type="web_manifest">web_manifest</label></div>
-                                    </div>
-                                    <div class="row">
-                                        <div class="col-sm-3 checkbox-inline"><label><input type="checkbox" id="cbType_other" data-type="other">other</label></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal">
+              <span aria-hidden="true">&times;</span
+              ><span class="sr-only i18n" data-i18n_text="close">关闭</span>
+            </button>
+            <h4 class="modal-title i18n" data-i18n_text="edit">编辑</h4>
+          </div>
+          <div class="modal-body">
+            <!--规则描述-->
+            <div class="form-horizontal" role="form">
+              <div class="form-group">
+                <label
+                  for="txtDescription"
+                  class="col-sm-2 control-label i18n"
+                  data-i18n_text="description"
+                  >规则描述</label
+                >
+                <div class="col-sm-10">
+                  <div class="input-group">
+                    <input
+                      type="text"
+                      class="form-control i18n"
+                      id="txtDescription"
+                      data-i18n_attr_placeholder="descriptionPlaceholder"
+                      placeholder="规则描述，可选"
+                    />
+                    <span class="input-group-btn">
+                      <button class="btn btn-default remove">
+                        <i class="glyphicon glyphicon-remove-sign"></i>
+                      </button>
+                    </span>
+                  </div>
                 </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-default i18n" data-i18n_text="cancel" data-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-primary i18n" data-i18n_text="ok" id="btnConfirmCustomRule">确定</button>
-            </div>
-        </div><!-- /.modal-content -->
-    </div><!-- /.modal-dialog -->
-</div><!-- /.modal -->
-
-<!-- View json format data -->
-<div id="modalViewUserRule" class="modal fade">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span
-                    class="sr-only i18n" data-i18n_text="close">关闭</span></button>
-                <h4 class="modal-title i18n" data-i18n_text="jsonFormat">JSON 格式用户规则</h4>
-            </div>
-            <div class="modal-body">
-                <p class="i18n" data-i18n_text="cloudHint">以下内容可保存到在线存储（github、云盘等），作为在线用户规则文件使用</p>
-                <form role="form">
-                    <div class="form-group">
-                        <textarea class="form-control" wrap="wrap" readonly="readonly" rows="15"></textarea>
+              </div>
+              <!--地址示例-->
+              <div class="form-group">
+                <label class="col-sm-2 control-label i18n" data-i18n_text="example">地址示例</label>
+                <div class="col-sm-10">
+                  <div class="input-group">
+                    <input
+                      type="text"
+                      class="form-control i18n"
+                      id="txtExample"
+                      data-i18n_attr_placeholder="examplePlaceholder"
+                      placeholder="地址示例，可选"
+                    />
+                    <span class="input-group-btn">
+                      <button class="btn btn-default remove">
+                        <i class="glyphicon glyphicon-remove-sign"></i>
+                      </button>
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <!--原始地址-->
+              <div class="form-group">
+                <label for="txtOrigin" class="col-sm-2 control-label i18n" data-i18n_text="origin"
+                  >原始地址</label
+                >
+                <div class="col-sm-10">
+                  <div class="input-group">
+                    <input
+                      type="text"
+                      class="form-control i18n"
+                      id="txtOrigin"
+                      data-i18n_attr_placeholder="originPlaceholder"
+                      placeholder="原始地址正则表达式，必需"
+                    />
+                    <span class="input-group-btn">
+                      <button class="btn btn-default remove">
+                        <i class="glyphicon glyphicon-remove-sign"></i>
+                      </button>
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <!--目标地址-->
+              <div class="form-group">
+                <label for="txtTarget" class="col-sm-2 control-label i18n" data-i18n_text="target"
+                  >目标地址</label
+                >
+                <div class="col-sm-10">
+                  <div class="input-group">
+                    <input
+                      type="text"
+                      class="form-control i18n"
+                      id="txtTarget"
+                      data-i18n_attr_placeholder="targetPlaceholder"
+                      placeholder="目标地址正则表达式，必需"
+                    />
+                    <span class="input-group-btn">
+                      <button class="btn btn-default remove">
+                        <i class="glyphicon glyphicon-remove-sign"></i>
+                      </button>
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <!--排除地址-->
+              <div class="form-group">
+                <label for="txtExclude" class="col-sm-2 control-label i18n" data-i18n_text="exclude"
+                  >排除地址</label
+                >
+                <div class="col-sm-10">
+                  <div class="input-group">
+                    <input
+                      type="text"
+                      class="form-control i18n"
+                      id="txtExclude"
+                      data-i18n_attr_placeholder="excludePlaceholder"
+                      placeholder="排除地址正则表达式，可选"
+                    />
+                    <span class="input-group-btn">
+                      <button class="btn btn-default remove">
+                        <i class="glyphicon glyphicon-remove-sign"></i>
+                      </button>
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <!--匹配处理-->
+              <div class="form-group">
+                <label class="col-sm-2 control-label i18n" data-i18n_text="process">匹配处理</label>
+                <div class="col-sm-10">
+                  <div class="row">
+                    <label class="col-sm-6"
+                      ><input type="radio" name="process" value="" />
+                      <span class="i18n" data-i18n_text="none">无</span></label
+                    >
+                  </div>
+                  <div class="row">
+                    <label class="col-sm-6"
+                      ><input type="radio" name="process" value="urlEncode" />
+                      <span class="i18n" data-i18n_text="urlencode">URL编码</span></label
+                    >
+                    <label class="col-sm-6"
+                      ><input type="radio" name="process" value="urlDecode" />
+                      <span class="i18n" data-i18n_text="urldecode">URL解码</span></label
+                    >
+                  </div>
+                  <div class="row">
+                    <label class="col-sm-6"
+                      ><input type="radio" name="process" value="base64Encode" />
+                      <span class="i18n" data-i18n_text="base64encode">Base64编码</span></label
+                    >
+                    <label class="col-sm-6"
+                      ><input type="radio" name="process" value="base64Decode" />
+                      <span class="i18n" data-i18n_text="base64decode">Base64解码</span></label
+                    >
+                  </div>
+                </div>
+              </div>
+              <!--测试结果-->
+              <div class="form-group">
+                <label class="col-sm-2 control-label i18n" data-i18n_text="result">测试结果</label>
+                <div class="col-sm-10">
+                  <input
+                    type="text"
+                    class="form-control i18n"
+                    id="txtTestResult"
+                    data-i18n_attr_placeholder="resultPlaceholder"
+                    readonly
+                    placeholder="测试结果"
+                  />
+                </div>
+              </div>
+              <!--请求方法-->
+              <div class="form-group">
+                <label class="col-sm-2 control-label i18n" data-i18n_text="methods">请求方法</label>
+                <div class="col-sm-10">
+                  <div class="checkbox-inline">
+                    <label
+                      ><input type="checkbox" id="cbMethodAll" checked /><span
+                        class="i18n"
+                        data-i18n_text="allMethods"
+                        >全部方法</span
+                      ></label
+                    >
+                  </div>
+                  <div class="collapse" id="divMethods">
+                    <div class="container-fluid">
+                      <div class="row">
+                        <div class="col-sm-3 checkbox-inline">
+                          <label
+                            ><input type="checkbox" id="cbMethod_GET" data-method="GET" />GET</label
+                          >
+                        </div>
+                        <div class="col-sm-3 checkbox-inline">
+                          <label
+                            ><input
+                              type="checkbox"
+                              id="cbMethod_POST"
+                              data-method="POST"
+                            />POST</label
+                          >
+                        </div>
+                        <div class="col-sm-3 checkbox-inline">
+                          <label
+                            ><input type="checkbox" id="cbMethod_PUT" data-method="PUT" />PUT</label
+                          >
+                        </div>
+                      </div>
+                      <div class="row">
+                        <div class="col-sm-3 checkbox-inline">
+                          <label
+                            ><input
+                              type="checkbox"
+                              id="cbMethod_PATCH"
+                              data-method="PATCH"
+                            />PATCH</label
+                          >
+                        </div>
+                        <div class="col-sm-3 checkbox-inline">
+                          <label
+                            ><input
+                              type="checkbox"
+                              id="cbMethod_HEAD"
+                              data-method="HEAD"
+                            />HEAD</label
+                          >
+                        </div>
+                        <div class="col-sm-3 checkbox-inline">
+                          <label
+                            ><input
+                              type="checkbox"
+                              id="cbMethod_DELETE"
+                              data-method="DELETE"
+                            />DELETE</label
+                          >
+                        </div>
+                      </div>
                     </div>
-                </form>
+                  </div>
+                </div>
+              </div>
+              <!--资源类型-->
+              <div class="form-group">
+                <label class="col-sm-2 control-label i18n" data-i18n_text="types">资源类型</label>
+                <div class="col-sm-10">
+                  <div class="checkbox-inline">
+                    <label
+                      ><input type="checkbox" id="cbTypeAll" checked /><span
+                        class="i18n"
+                        data-i18n_text="allTypes"
+                        >全部类型</span
+                      ></label
+                    >
+                    <a
+                      id="resourceType"
+                      class="small i18n"
+                      data-i18n_text="typesDescription"
+                      target="_blank"
+                      >类型说明</a
+                    >
+                  </div>
+                  <div class="collapse" id="divTypes">
+                    <div class="container-fluid">
+                      <div class="row">
+                        <div class="col-sm-3 checkbox-inline">
+                          <label
+                            ><input
+                              type="checkbox"
+                              id="cbType_main_frame"
+                              data-type="main_frame"
+                            />main_frame</label
+                          >
+                        </div>
+                        <div class="col-sm-3 checkbox-inline">
+                          <label
+                            ><input
+                              type="checkbox"
+                              id="cbType_sub_frame"
+                              data-type="sub_frame"
+                            />sub_frame</label
+                          >
+                        </div>
+                        <div class="col-sm-3 checkbox-inline">
+                          <label
+                            ><input
+                              type="checkbox"
+                              id="cbType_stylesheet"
+                              data-type="stylesheet"
+                            />stylesheet</label
+                          >
+                        </div>
+                      </div>
+                      <div class="row">
+                        <div class="col-sm-3 checkbox-inline">
+                          <label
+                            ><input
+                              type="checkbox"
+                              id="cbType_script"
+                              data-type="script"
+                            />script</label
+                          >
+                        </div>
+                        <div class="col-sm-3 checkbox-inline">
+                          <label
+                            ><input
+                              type="checkbox"
+                              id="cbType_image"
+                              data-type="image"
+                            />image</label
+                          >
+                        </div>
+                        <div class="col-sm-3 checkbox-inline">
+                          <label
+                            ><input
+                              type="checkbox"
+                              id="cbType_object"
+                              data-type="object"
+                            />object</label
+                          >
+                        </div>
+                      </div>
+                      <div class="row">
+                        <div class="col-sm-3 checkbox-inline">
+                          <label
+                            ><input
+                              type="checkbox"
+                              id="cbType_xmlhttprequest"
+                              data-type="xmlhttprequest"
+                            />xmlhttprequest</label
+                          >
+                        </div>
+                        <div class="col-sm-3 checkbox-inline">
+                          <label
+                            ><input type="checkbox" id="cbType_xbl" data-type="xbl" />xbl</label
+                          >
+                        </div>
+                        <div class="col-sm-3 checkbox-inline">
+                          <label
+                            ><input type="checkbox" id="cbType_xslt" data-type="xslt" />xslt</label
+                          >
+                        </div>
+                      </div>
+                      <div class="row">
+                        <div class="col-sm-3 checkbox-inline">
+                          <label
+                            ><input type="checkbox" id="cbType_ping" data-type="ping" />ping</label
+                          >
+                        </div>
+                        <div class="col-sm-3 checkbox-inline">
+                          <label
+                            ><input
+                              type="checkbox"
+                              id="cbType_beacon"
+                              data-type="beacon"
+                            />beacon</label
+                          >
+                        </div>
+                        <div class="col-sm-3 checkbox-inline">
+                          <label
+                            ><input
+                              type="checkbox"
+                              id="cbType_xml_dtd"
+                              data-type="xml_dtd"
+                            />xml_dtd</label
+                          >
+                        </div>
+                      </div>
+                      <div class="row">
+                        <div class="col-sm-3 checkbox-inline">
+                          <label
+                            ><input type="checkbox" id="cbType_font" data-type="font" />font</label
+                          >
+                        </div>
+                        <div class="col-sm-3 checkbox-inline">
+                          <label
+                            ><input
+                              type="checkbox"
+                              id="cbType_media"
+                              data-type="media"
+                            />media</label
+                          >
+                        </div>
+                        <div class="col-sm-3 checkbox-inline">
+                          <label
+                            ><input
+                              type="checkbox"
+                              id="cbType_websocket"
+                              data-type="websocket"
+                            />websocket</label
+                          >
+                        </div>
+                      </div>
+                      <div class="row">
+                        <div class="col-sm-3 checkbox-inline">
+                          <label
+                            ><input
+                              type="checkbox"
+                              id="cbType_csp_report"
+                              data-type="csp_report"
+                            />csp_report</label
+                          >
+                        </div>
+                        <div class="col-sm-3 checkbox-inline">
+                          <label
+                            ><input
+                              type="checkbox"
+                              id="cbType_imageset"
+                              data-type="imageset"
+                            />imageset</label
+                          >
+                        </div>
+                        <div class="col-sm-3 checkbox-inline">
+                          <label
+                            ><input
+                              type="checkbox"
+                              id="cbType_web_manifest"
+                              data-type="web_manifest"
+                            />web_manifest</label
+                          >
+                        </div>
+                      </div>
+                      <div class="row">
+                        <div class="col-sm-3 checkbox-inline">
+                          <label
+                            ><input
+                              type="checkbox"
+                              id="cbType_other"
+                              data-type="other"
+                            />other</label
+                          >
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-default i18n" data-i18n_text="close" data-dismiss="modal">关闭</button>
-            </div>
-        </div><!-- /.modal-content -->
-    </div><!-- /.modal-dialog -->
-</div><!-- /.modal -->
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-default i18n"
+              data-i18n_text="cancel"
+              data-dismiss="modal"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary i18n"
+              data-i18n_text="ok"
+              id="btnConfirmCustomRule"
+            >
+              确定
+            </button>
+          </div>
+        </div>
+        <!-- /.modal-content -->
+      </div>
+      <!-- /.modal-dialog -->
+    </div>
+    <!-- /.modal -->
 
-<div id="modalCloud" class="modal fade">
-    <div class="modal-dialog">
+    <!-- View json format data -->
+    <div id="modalViewUserRule" class="modal fade">
+      <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-body">
-                <p id="cloudMessage"></p>
-            </div>
-        </div><!-- /.modal-content -->
-    </div><!-- /.modal-dialog -->
-</div><!-- /.modal -->
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal">
+              <span aria-hidden="true">&times;</span
+              ><span class="sr-only i18n" data-i18n_text="close">关闭</span>
+            </button>
+            <h4 class="modal-title i18n" data-i18n_text="jsonFormat">JSON 格式用户规则</h4>
+          </div>
+          <div class="modal-body">
+            <p class="i18n" data-i18n_text="cloudHint">
+              以下内容可保存到在线存储（github、云盘等），作为在线用户规则文件使用
+            </p>
+            <form role="form">
+              <div class="form-group">
+                <textarea class="form-control" wrap="wrap" readonly="readonly" rows="15"></textarea>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-default i18n"
+              data-i18n_text="close"
+              data-dismiss="modal"
+            >
+              关闭
+            </button>
+          </div>
+        </div>
+        <!-- /.modal-content -->
+      </div>
+      <!-- /.modal-dialog -->
+    </div>
+    <!-- /.modal -->
 
-<script src="../static/js/jquery.js"></script>
-<script src="../static/js/bootstrap.js"></script>
-<script src="../common.js"></script>
-<script src="../model.js"></script>
-<script src="../storage.js"></script>
-<script src="../i18n.js"></script>
-<script src="../cloud/onedrive.js"></script>
-<script src="options.js"></script>
-</body>
+    <div id="modalCloud" class="modal fade">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-body">
+            <p id="cloudMessage"></p>
+          </div>
+        </div>
+        <!-- /.modal-content -->
+      </div>
+      <!-- /.modal-dialog -->
+    </div>
+    <!-- /.modal -->
+
+    <script src="../static/js/jquery.js"></script>
+    <script src="../static/js/bootstrap.js"></script>
+    <script type="module" src="./options.js"></script>
+  </body>
 </html>
