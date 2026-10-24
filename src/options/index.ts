@@ -8,7 +8,9 @@ import { getMessage, localizeDocument } from "../shared/i18n";
 import { sendMessage, type ExtensionMessage } from "../shared/messaging";
 import { OnlineURL, Rule, Storage } from "../shared/model";
 import type { RuleData, StorageData } from "../shared/model";
+import { parseRuleList } from "../shared/onlineRules";
 import { readSettings, writeSettings } from "../shared/storage";
+import { ADDON_URL, HOMEPAGE_URL, MDN_RESOURCE_TYPE_URL } from "../shared/urls";
 import {
   fadeOut,
   find,
@@ -21,11 +23,12 @@ import {
   showModal,
 } from "../shared/ui";
 
-const RESOURCE_TYPE_URL =
-  "https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/webRequest/ResourceType";
-const ADDON_URL = "https://addons.mozilla.org/firefox/addon/urlredirector/";
 const OPTION_TAB_URL = window.location.href;
 const CLOUD_MESSAGE_MS = 8000;
+/** Quiet period after an edit before it is written, so typing is not written per key. */
+const SAVE_DELAY_MS = 400;
+/** How long the "saved" confirmation stays visible. */
+const SAVE_MESSAGE_MS = 3000;
 
 const NOTIFICATIONS = {
   downloading: getMessage("downloading"),
@@ -34,13 +37,33 @@ const NOTIFICATIONS = {
   uploadingCloud: getMessage("uploading_cloud"),
   success: getMessage("success"),
   fail: getMessage("fail"),
+  saving: getMessage("saving"),
+  saved: getMessage("saved"),
+  importEmpty: getMessage("importEmpty"),
+  importInvalid: getMessage("importInvalid"),
+  importNothing: getMessage("importNothing"),
 };
 
 let settings = new Storage();
 let editingOnlineURL: OnlineURL | null = null;
 let editingOnlineURLIndex = 0;
 let editingRule: Rule | null = null;
+/** Rule the delete confirmation is about to remove. */
+let pendingDeletion: Rule | null = null;
+/** Insert the next new rule at the top of the list instead of at its end. */
+let addRuleAtTop = false;
 let cancelCloudMessage: (() => void) | null = null;
+let cancelImportMessage: (() => void) | null = null;
+let cancelSaveMessage: (() => void) | null = null;
+/** Pending debounced write. */
+let saveTimer: number | null = null;
+/** JSON of the last payload written, used to tell our own storage event apart. */
+let lastWritten: string | null = null;
+/** Serializes writes so that a slow one cannot land after a newer one. */
+let writing: Promise<void> = Promise.resolve();
+
+/** Row being dragged, with its original position and whether it was dropped. */
+let dragState: { row: HTMLTableRowElement; from: number; dropped: boolean } | null = null;
 
 /** Focus the options tab again, e.g. after the OAuth round trip. */
 async function activateOptionsTab(): Promise<void> {
@@ -70,6 +93,95 @@ function showCloudMessage(message: string | undefined): void {
 
 function cloudDriver(): typeof onedrive | null {
   return must<HTMLSelectElement>("#sltCloud").value === "onedrive" ? onedrive : null;
+}
+
+function showImportError(message: string | undefined): void {
+  must("#importError").textContent = message ?? "";
+}
+
+/** Report the outcome of an import next to the buttons, then fade it away. */
+function showImportState(message: string | undefined): void {
+  const label = must("#importState");
+  cancelImportMessage?.();
+  label.textContent = message ?? "";
+  show(label);
+  cancelImportMessage = fadeOut(label, CLOUD_MESSAGE_MS);
+}
+
+/** Whether a parsed JSON entry holds the minimum of a usable rule. */
+function isImportableRule(entry: unknown): entry is RuleData {
+  if (!entry || typeof entry !== "object") {
+    return false;
+  }
+  const rule = entry as RuleData;
+  return (
+    typeof rule.origin === "string" &&
+    rule.origin !== "" &&
+    typeof rule.target === "string" &&
+    rule.target !== ""
+  );
+}
+
+/**
+ * Append the rules pasted into the import dialog.
+ *
+ * Invalid entries and rules that already exist are skipped, so pasting the
+ * same file twice changes nothing. Like every other edit of this page the
+ * result is kept in memory and then written by the autosave.
+ */
+function importRules(): void {
+  const textarea = must<HTMLTextAreaElement>("#modalImportUserRule textarea");
+  const content = textarea.value.trim();
+  if (!content) {
+    showImportError(NOTIFICATIONS.importEmpty);
+    textarea.focus();
+    return;
+  }
+
+  let entries: RuleData[];
+  try {
+    entries = parseRuleList(content);
+  } catch (error) {
+    console.error(error);
+    showImportError(NOTIFICATIONS.importInvalid);
+    textarea.focus();
+    return;
+  }
+
+  const imported: Rule[] = [];
+  let skipped = 0;
+  for (const entry of entries) {
+    if (!isImportableRule(entry)) {
+      skipped++;
+      continue;
+    }
+    const duplicated = [...settings.customRules, ...imported].some(
+      (rule) => rule.origin === entry.origin && rule.target === entry.target,
+    );
+    if (duplicated) {
+      skipped++;
+      continue;
+    }
+    const rule = new Rule();
+    rule.fromObject({
+      ...entry,
+      enable: entry.enable ?? true,
+      methods: entry.methods ?? [],
+      types: entry.types ?? [],
+    });
+    imported.push(rule);
+  }
+
+  if (imported.length === 0) {
+    showImportError(skipped > 0 ? NOTIFICATIONS.importNothing : NOTIFICATIONS.importEmpty);
+    return;
+  }
+
+  settings.customRules.push(...imported);
+  displayAll();
+  hideModal(must("#modalImportUserRule"));
+  showImportState(getMessage("imported", [String(imported.length), String(skipped)]) ?? undefined);
+  scheduleSave();
 }
 
 /** Row index inside its table body. */
@@ -135,46 +247,91 @@ async function downloadFromCloud(): Promise<void> {
   }
 }
 
-/* Move a row up or down */
-function moveUpOrDown(row: HTMLTableRowElement, up: boolean): void {
-  const index = rowIndex(row);
-  const rows =
-    row.closest("table")?.id === "tblOnlineURLs" ? settings.onlineURLs : settings.customRules;
-  const neighbourIndex = up ? index - 1 : index + 1;
-  const neighbour = rows[neighbourIndex];
-  if (neighbour === undefined) {
-    return;
-  }
-  if (up) {
-    row.previousElementSibling?.before(row);
-  } else {
-    row.nextElementSibling?.after(row);
-  }
-  rows[neighbourIndex] = rows[index]!;
-  rows[index] = neighbour;
+/** The settings array of the table that contains `row`. */
+function rowsFor(row: Element): unknown[] {
+  const table = row.closest("table");
+  return (table?.id === "tblOnlineURLs" ? settings.onlineURLs : settings.customRules) as unknown[];
 }
 
-/** Up/down button pair shared by both tables. */
+/** Move `row` to `toIndex` inside its table body, without touching the settings. */
+function moveDom(row: HTMLTableRowElement, toIndex: number): void {
+  const parent = row.parentElement;
+  if (!parent) {
+    return;
+  }
+  const current = Array.prototype.indexOf.call(parent.children, row) as number;
+  if (current === toIndex) {
+    return;
+  }
+  /* Moving down means the row leaves its slot first, hence the extra offset. */
+  const reference =
+    toIndex > current ? (parent.children[toIndex + 1] ?? null) : (parent.children[toIndex] ?? null);
+  parent.insertBefore(row, reference);
+}
+
+/** Move a row, keeping the settings array in the same order as the table. */
+function moveRow(row: HTMLTableRowElement, toIndex: number): void {
+  const rows = rowsFor(row);
+  const from = rowIndex(row);
+  if (toIndex < 0 || toIndex >= rows.length || toIndex === from) {
+    return;
+  }
+  moveDom(row, toIndex);
+  const [moved] = rows.splice(from, 1);
+  rows.splice(toIndex, 0, moved);
+  scheduleSave();
+}
+
+/**
+ * Up/down button pair shared by both tables.
+ *
+ * Holding Shift jumps to the first or last position instead of one step; the
+ * tooltip of each button describes both behaviours.
+ */
 function moveButtons(row: () => HTMLTableRowElement): HTMLElement[] {
-  return [
-    h(
-      "button",
-      {
-        className: "btn btn-xs btn-info",
-        on: { click: () => moveUpOrDown(row(), true) },
-      },
-      [h("span", { className: "glyphicon glyphicon-chevron-up" })],
-    ),
-    h(
-      "button",
-      {
-        className: "btn btn-xs btn-info",
-        style: { "margin-left": "2px" },
-        on: { click: () => moveUpOrDown(row(), false) },
-      },
-      [h("span", { className: "glyphicon glyphicon-chevron-down" })],
-    ),
+  const buttons = [
+    { icon: "bi-chevron-up", title: getMessage("moveUp"), direction: -1 },
+    { icon: "bi-chevron-down", title: getMessage("moveDown"), direction: 1 },
   ];
+  return buttons.map(({ icon, title, direction }) =>
+    h(
+      "button",
+      {
+        className: "btn btn-xs btn-info",
+        title,
+        style: direction > 0 ? { "margin-left": "2px" } : {},
+        on: {
+          click: (event) => {
+            const current = row();
+            const toIndex = (event as MouseEvent).shiftKey
+              ? direction < 0
+                ? 0
+                : rowsFor(current).length - 1
+              : rowIndex(current) + direction;
+            moveRow(current, toIndex);
+          },
+        },
+      },
+      [h("span", { className: `bi ${icon}` })],
+    ),
+  );
+}
+
+/**
+ * Cell holding the grip that turns its row into a drag source.
+ *
+ * The listener sits on the cell, not on the icon, so the whole grip column is
+ * an easy target; only the grip column toggles `draggable`, so text fields and
+ * checkboxes keep their normal mouse behaviour.
+ */
+function dragCell(row: () => HTMLTableRowElement): HTMLTableCellElement {
+  const cell = h("td", { className: "drag-cell", title: getMessage("dragToReorder") }, [
+    h("span", { className: "bi bi-list drag-handle", attributes: { "aria-hidden": "true" } }),
+  ]);
+  cell.addEventListener("mousedown", () => {
+    row().draggable = true;
+  });
+  return cell;
 }
 
 /** Build a table cell wrapping `child`. */
@@ -204,12 +361,13 @@ function createURLRow(onlineURL: OnlineURL): void {
     }
     urlInput.dataset.old = url;
     settings.onlineURLs[rowIndex(urlInput.closest("tr")!)]!.url = url;
+    scheduleSave();
   });
 
   const viewButton = h(
     "a",
     {
-      className: "btn btn-xs btn-default",
+      className: "btn btn-xs btn-outline-secondary",
       on: {
         click: () => {
           const target = settings.onlineURLs[rowIndex(viewButton.closest("tr")!)];
@@ -219,23 +377,24 @@ function createURLRow(onlineURL: OnlineURL): void {
         },
       },
     },
-    [h("i", { className: "glyphicon glyphicon-eye-open" })],
+    [h("i", { className: "bi bi-eye" })],
   );
 
   const autoCheckbox = h("input", {
-    className: "checkbox middle",
+    className: "form-check-input middle",
     title: getMessage("autoUpdate"),
     checked: onlineURL.auto,
     attributes: { type: "checkbox" },
     on: {
       change: () => {
         settings.onlineURLs[rowIndex(autoCheckbox.closest("tr")!)!]!.auto = autoCheckbox.checked;
+        scheduleSave();
       },
     },
   });
 
   const enableCheckbox = h("input", {
-    className: "checkbox middle",
+    className: "form-check-input middle",
     title: getMessage("enable"),
     checked: onlineURL.enable,
     attributes: { type: "checkbox" },
@@ -243,12 +402,14 @@ function createURLRow(onlineURL: OnlineURL): void {
       change: () => {
         settings.onlineURLs[rowIndex(enableCheckbox.closest("tr")!)!]!.enable =
           enableCheckbox.checked;
+        scheduleSave();
       },
     },
   });
 
   const row: HTMLTableRowElement = h("tr", {}, [
-    cell(h("input", { className: "checkbox", attributes: { type: "checkbox" } })),
+    dragCell(() => row),
+    cell(h("input", { className: "form-check-input", attributes: { type: "checkbox" } })),
     cell(urlInput),
     h("td", { style: { width: "60px" } }, [viewButton]),
     cell(autoCheckbox),
@@ -270,6 +431,7 @@ function createRuleRow(rule: Rule): void {
   const tbody = must<HTMLTableElement>("#tblCustomRules").tBodies[0]!;
 
   const enableCheckbox = h("input", {
+    className: "form-check-input middle",
     title: getMessage("enable"),
     checked: rule.enable,
     attributes: { type: "checkbox" },
@@ -277,6 +439,7 @@ function createRuleRow(rule: Rule): void {
       change: () => {
         settings.customRules[rowIndex(enableCheckbox.closest("tr")!)!]!.enable =
           enableCheckbox.checked;
+        scheduleSave();
       },
     },
   });
@@ -289,13 +452,21 @@ function createRuleRow(rule: Rule): void {
           editingRule = settings.customRules[rowIndex(row)] ?? null;
           showEditCustomRuleModal(editingRule);
         },
+        /* Shift+click on the row (but not on a control) adds a rule on top. */
+        click: (event) => {
+          const target = event.target as Element | null;
+          if ((event as MouseEvent).shiftKey && !target?.closest("input, button, a")) {
+            startNewRule(true);
+          }
+        },
       },
     },
     [
-      cell(h("input", { attributes: { type: "checkbox" } })),
-      cell(h("span", { text: rule.description ?? "" })),
-      cell(h("span", { text: rule.origin ?? "" })),
-      cell(h("span", { text: rule.target ?? "" })),
+      dragCell(() => row),
+      cell(h("input", { className: "form-check-input", attributes: { type: "checkbox" } })),
+      cell(h("span", { className: "rule-description", text: rule.description ?? "" })),
+      cell(h("span", { className: "rule-origin", text: rule.origin ?? "" })),
+      cell(h("span", { className: "rule-target", text: rule.target ?? "" })),
       cell(enableCheckbox),
       cell(
         h(
@@ -322,9 +493,9 @@ function displayAll(): void {
 
   const manifest = browser.runtime.getManifest();
   must("#version").textContent = manifest.version;
-  must<HTMLAnchorElement>("#homepage").href = manifest.homepage_url ?? "";
+  must<HTMLAnchorElement>("#homepage").href = HOMEPAGE_URL;
   must<HTMLAnchorElement>("#addonPage").href = ADDON_URL;
-  must<HTMLAnchorElement>("#resourceType").href = RESOURCE_TYPE_URL;
+  must<HTMLAnchorElement>("#resourceType").href = MDN_RESOURCE_TYPE_URL;
 
   if (settings.updateInterval) {
     must<HTMLSelectElement>("#onlineInterval").value = String(
@@ -338,7 +509,7 @@ function displayAll(): void {
 
   if (!browser.storage.sync) {
     const label = must("#lblSync");
-    label.classList.add("text-muted");
+    label.classList.add("text-body-secondary");
     label.title = NOTIFICATIONS.syncNotSupported ?? "";
     const sync = must<HTMLInputElement>("#chbSync");
     sync.disabled = true;
@@ -368,7 +539,7 @@ function showOnlineURLModal(onlineURL: OnlineURL): void {
   tbody.replaceChildren();
   for (const rule of onlineURL.rules) {
     const toggle = h("input", {
-      className: "checkbox",
+      className: "form-check-input",
       checked: rule.enable,
       attributes: { type: "checkbox" },
     });
@@ -387,6 +558,7 @@ function showOnlineURLModal(onlineURL: OnlineURL): void {
       if (editingOnlineURL) {
         editingOnlineURL.auto = false;
       }
+      scheduleSave();
     });
 
     tbody.append(
@@ -416,6 +588,7 @@ function showEditCustomRuleModal(rule: Rule | null): void {
   }
 
   if (rule) {
+    must("#btnDeleteRule").hidden = false;
     must<HTMLInputElement>("#txtDescription").value = rule.description ?? "";
     must<HTMLInputElement>("#txtOrigin").value = rule.origin ?? "";
     must<HTMLInputElement>("#txtTarget").value = rule.target ?? "";
@@ -444,6 +617,7 @@ function showEditCustomRuleModal(rule: Rule | null): void {
     }
     setCollapsed(typesCollapse, rule.types.length === 0);
   } else {
+    must("#btnDeleteRule").hidden = true;
     for (const id of [
       "#txtDescription",
       "#txtOrigin",
@@ -463,6 +637,21 @@ function showEditCustomRuleModal(rule: Rule | null): void {
 
   testRule();
   showModal(must("#modalEditUserRule"));
+}
+
+/** Open the editor for a new rule, which is appended or put on top once confirmed. */
+function startNewRule(atTop: boolean): void {
+  const hasEmpty = rowsOf("#tblCustomRules").some(
+    (row) =>
+      (row.querySelector(".rule-origin")?.textContent ?? "") === "" &&
+      (row.querySelector(".rule-target")?.textContent ?? "") === "",
+  );
+  if (hasEmpty) {
+    return;
+  }
+  addRuleAtTop = atTop;
+  editingRule = null;
+  showEditCustomRuleModal(null);
 }
 
 function setProcessRadio(value: string | null | undefined): void {
@@ -495,10 +684,78 @@ async function reload(): Promise<void> {
   displayAll();
 }
 
+/** Show a save state next to the buttons; `fade` clears it again after a while. */
+function setSaveState(message: string | undefined, fade = false): void {
+  const label = must("#saveState");
+  cancelSaveMessage?.();
+  cancelSaveMessage = null;
+  label.textContent = message ?? "";
+  if (!message) {
+    return;
+  }
+  show(label);
+  if (fade) {
+    cancelSaveMessage = fadeOut(label, SAVE_MESSAGE_MS);
+  }
+}
+
+/**
+ * Build the payload to store.
+ *
+ * Rows that are still incomplete are left out, but `settings` itself is not
+ * pruned: a half typed subscription keeps its row, and the row indexes keep
+ * pointing at the right object while the user finishes it.
+ */
+function snapshot(): Storage {
+  const copy = new Storage();
+  copy.fromObject(JSON.parse(JSON.stringify(settings)) as StorageData);
+  copy.onlineURLs = copy.onlineURLs.filter((onlineURL) => onlineURL.url);
+  copy.customRules = copy.customRules.filter((rule) => rule.origin && rule.target);
+  return copy;
+}
+
+/** Write the current settings, unless they are already stored. */
 async function saveOptions(): Promise<void> {
-  settings.onlineURLs = settings.onlineURLs.filter((onlineURL) => onlineURL.url);
-  settings.customRules = settings.customRules.filter((rule) => rule.origin && rule.target);
-  await writeSettings(settings);
+  cancelScheduledSave();
+  const payload = snapshot();
+  const serialized = JSON.stringify(payload);
+  if (serialized === lastWritten) {
+    return;
+  }
+  lastWritten = serialized;
+
+  setSaveState(NOTIFICATIONS.saving);
+  const write = writing.then(() => writeSettings(payload));
+  writing = write.then(
+    () => undefined,
+    () => undefined,
+  );
+  try {
+    await write;
+    setSaveState(NOTIFICATIONS.saved, true);
+  } catch (error) {
+    console.error(error);
+    /* Forget the payload so that the next edit tries again. */
+    lastWritten = null;
+    setSaveState(NOTIFICATIONS.fail);
+  }
+}
+
+/** Persist the pending changes once the user pauses. */
+function scheduleSave(): void {
+  cancelScheduledSave();
+  setSaveState(NOTIFICATIONS.saving);
+  saveTimer = window.setTimeout(() => {
+    saveTimer = null;
+    void saveOptions();
+  }, SAVE_DELAY_MS);
+}
+
+function cancelScheduledSave(): void {
+  if (saveTimer !== null) {
+    window.clearTimeout(saveTimer);
+    saveTimer = null;
+  }
 }
 
 function collectCheckedValues(containerId: string, attribute: string): string[] {
@@ -514,25 +771,129 @@ function collectCheckedValues(containerId: string, attribute: string): string[] 
   return values;
 }
 
+/** Commit a finished drag to the settings, or revert it when it was cancelled. */
+function finishDrag(): void {
+  const state = dragState;
+  if (!state) {
+    return;
+  }
+  dragState = null;
+  state.row.classList.remove("dragging");
+  state.row.draggable = false;
+
+  const to = rowIndex(state.row);
+  if (to === state.from) {
+    return;
+  }
+  if (state.dropped) {
+    const rows = rowsFor(state.row);
+    const [moved] = rows.splice(state.from, 1);
+    rows.splice(to, 0, moved);
+    scheduleSave();
+  } else {
+    /* The preview only moved the DOM, so put the row back where it came from. */
+    moveDom(state.row, state.from);
+  }
+}
+
+/** Let the rows of `tbody` be reordered by dragging their grip. */
+function initRowDragging(tbody: HTMLElement): void {
+  tbody.addEventListener("dragstart", (event) => {
+    const row = (event.target as Element | null)?.closest<HTMLTableRowElement>("tr");
+    if (!row || !row.draggable) {
+      event.preventDefault();
+      return;
+    }
+    dragState = { row, from: rowIndex(row), dropped: false };
+    row.classList.add("dragging");
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", rowIndex(row).toString());
+    }
+  });
+
+  tbody.addEventListener("dragover", (event) => {
+    const state = dragState;
+    const target = (event.target as Element | null)?.closest<HTMLTableRowElement>("tr");
+    if (!state || (target && target.parentElement !== tbody)) {
+      return;
+    }
+    event.preventDefault();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = "move";
+    }
+    if (!target) {
+      /* Pointer below the last row: append. */
+      if (state.row.nextElementSibling) {
+        tbody.append(state.row);
+      }
+      return;
+    }
+    if (target === state.row) {
+      return;
+    }
+    const box = target.getBoundingClientRect();
+    const after = event.clientY > box.top + box.height / 2;
+    if (after) {
+      tbody.insertBefore(state.row, target.nextSibling);
+    } else {
+      tbody.insertBefore(state.row, target);
+    }
+  });
+
+  tbody.addEventListener("drop", (event) => {
+    if (!dragState) {
+      return;
+    }
+    event.preventDefault();
+    dragState.dropped = true;
+  });
+
+  tbody.addEventListener("dragend", finishDrag);
+}
+
 function init(): void {
   localizeDocument();
   initModals();
+
+  for (const tbody of document.querySelectorAll<HTMLElement>(
+    "#tblOnlineURLs tbody, #tblCustomRules tbody",
+  )) {
+    initRowDragging(tbody);
+  }
+
+  /* A grip that is clicked without dragging must not leave the row draggable. */
+  document.addEventListener("mouseup", () => {
+    if (dragState) {
+      return;
+    }
+    for (const row of document.querySelectorAll<HTMLTableRowElement>("tr[draggable='true']")) {
+      row.draggable = false;
+    }
+  });
 
   find("#lnkCloudUpload")?.addEventListener("click", () => void uploadToCloud());
   find("#lnkCloudDownload")?.addEventListener("click", () => void downloadFromCloud());
 
   must<HTMLInputElement>("#chbEnable").addEventListener("change", (event) => {
     settings.enable = (event.target as HTMLInputElement).checked;
+    scheduleSave();
   });
   must<HTMLInputElement>("#chbSync").addEventListener("change", (event) => {
     settings.sync = (event.target as HTMLInputElement).checked;
+    scheduleSave();
   });
   must<HTMLSelectElement>("#onlineInterval").addEventListener("change", (event) => {
     const minutes = Number.parseInt((event.target as HTMLSelectElement).value, 10);
     settings.updateInterval = Number.isNaN(minutes) ? 60 : Math.max(1, minutes * 60);
+    scheduleSave();
   });
 
-  must("#btnReset").addEventListener("click", () => void reload());
+  /* Reset reads the stored settings back, dropping a pending edit as well. */
+  must("#btnReset").addEventListener("click", () => {
+    cancelScheduledSave();
+    void reload();
+  });
   must("#btnSave").addEventListener("click", () => void saveOptions());
   must("#btnDownload").addEventListener("click", async () => {
     const isDownloading = await sendMessage({ method: "isDownloading" });
@@ -566,24 +927,23 @@ function init(): void {
     onlineURL.auto = true;
     settings.onlineURLs.push(onlineURL);
     createURLRow(onlineURL);
+    scheduleSave();
   });
 
   must("#btnDeleteOnlineURL").addEventListener("click", () => {
     deleteSelected("#tblOnlineURLs", (index) => settings.onlineURLs.splice(index, 1));
+    scheduleSave();
   });
 
-  must("#btnAddCustomRule").addEventListener("click", () => {
-    const hasEmpty = rowsOf("#tblCustomRules").some((row) => {
-      const spans = row.querySelectorAll("span");
-      return (spans[1]?.textContent ?? "") === "" && (spans[2]?.textContent ?? "") === "";
-    });
-    if (hasEmpty) {
-      return;
+  must("#btnAddCustomRule").addEventListener("click", (event) => {
+    startNewRule(event.shiftKey);
+  });
+
+  /* Shift+click on the heading is a second way to add a rule on top. */
+  must("#hdrCustomRules").addEventListener("click", (event) => {
+    if (event.shiftKey) {
+      startNewRule(true);
     }
-    editingRule = null;
-    const rule = new Rule();
-    rule.enable = true;
-    showEditCustomRuleModal(rule);
   });
 
   must("#btnEditCustomRule").addEventListener("click", () => {
@@ -598,6 +958,34 @@ function init(): void {
 
   must("#btnDeleteCustomRule").addEventListener("click", () => {
     deleteSelected("#tblCustomRules", (index) => settings.customRules.splice(index, 1));
+    scheduleSave();
+  });
+
+  /* Delete from inside the editor, behind a confirmation. */
+  must("#btnDeleteRule").addEventListener("click", () => {
+    const rule = editingRule;
+    if (!rule) {
+      return;
+    }
+    pendingDeletion = rule;
+    const name = rule.description || rule.origin || "";
+    must("#confirmMessage").textContent = getMessage("confirmDeleteRule", [name]) ?? "";
+    showModal(must("#modalConfirmDelete"));
+  });
+
+  must("#btnConfirmDeleteRule").addEventListener("click", () => {
+    const rule = pendingDeletion;
+    pendingDeletion = null;
+    hideModal(must("#modalConfirmDelete"));
+    const index = rule ? settings.customRules.indexOf(rule) : -1;
+    if (index < 0) {
+      return;
+    }
+    settings.customRules.splice(index, 1);
+    editingRule = null;
+    hideModal(must("#modalEditUserRule"));
+    displayAll();
+    scheduleSave();
   });
 
   for (const button of document.querySelectorAll<HTMLButtonElement>("button.remove")) {
@@ -646,7 +1034,11 @@ function init(): void {
     if (!rule) {
       rule = new Rule();
       rule.enable = true;
-      settings.customRules.push(rule);
+      if (addRuleAtTop) {
+        settings.customRules.unshift(rule);
+      } else {
+        settings.customRules.push(rule);
+      }
       editingRule = rule;
     }
     rule.description = must<HTMLInputElement>("#txtDescription").value;
@@ -664,6 +1056,7 @@ function init(): void {
 
     displayAll();
     hideModal(must("#modalEditUserRule"));
+    scheduleSave();
   });
 
   must("#btnViewCustomeRule").addEventListener("click", () => {
@@ -675,6 +1068,16 @@ function init(): void {
     );
     showModal(must("#modalViewUserRule"));
   });
+
+  must("#btnImportCustomRule").addEventListener("click", () => {
+    const textarea = must<HTMLTextAreaElement>("#modalImportUserRule textarea");
+    textarea.value = "";
+    showImportError("");
+    showModal(must("#modalImportUserRule"));
+    textarea.focus();
+  });
+
+  must("#btnConfirmImportRule").addEventListener("click", importRules);
 
   browser.runtime.onMessage.addListener((message: ExtensionMessage) => {
     if (message.method === "downloaded") {
@@ -690,9 +1093,22 @@ function init(): void {
     return undefined;
   });
 
-  browser.storage.onChanged.addListener((_changes, area) => {
-    if (area === "local") {
-      void reload();
+  browser.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local") {
+      return;
+    }
+    /* Our own writes echo back here; re-rendering on them would fight the user. */
+    const newValue = changes.storage?.newValue;
+    if (newValue !== undefined && JSON.stringify(newValue) === lastWritten) {
+      return;
+    }
+    void reload();
+  });
+
+  /* Leaving the page must not drop the edit that is still inside the debounce. */
+  window.addEventListener("pagehide", () => {
+    if (saveTimer !== null) {
+      void saveOptions();
     }
   });
 

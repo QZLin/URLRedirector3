@@ -155,4 +155,45 @@ describe("Storage", () => {
     });
     expect(settings.redirect("https://a.example")).toBeNull();
   });
+
+  it("treats a rule that leaves the URL unchanged as no redirect", () => {
+    const settings = makeStorage({
+      customRules: [{ origin: "example\\.com", target: "example.com", enable: true }],
+    });
+    expect(settings.redirect("https://example.com/page")).toBeNull();
+  });
+
+  it("keeps matching after a rule that leaves the URL unchanged", () => {
+    const settings = makeStorage({
+      customRules: [
+        { origin: "example\\.com", target: "example.com", enable: true },
+        { origin: "example\\.com", target: "example.org", enable: true },
+      ],
+    });
+    expect(settings.redirect("https://example.com/page")).toBe("https://example.org/page");
+  });
+
+  it("skips no-op rules inside an online subscription", () => {
+    const settings = makeStorage({
+      onlineURLs: [
+        makeOnlineURL({
+          url: "https://rules.example",
+          rules: [
+            { origin: "example\\.com", target: "example.com", enable: true },
+            { origin: "example\\.com", target: "online.example", enable: true },
+          ],
+        }),
+      ],
+    });
+    expect(settings.redirect("https://example.com/page")).toBe("https://online.example/page");
+  });
+
+  it("stops a rule chain that keeps growing the URL", () => {
+    const settings = makeStorage({
+      customRules: [{ origin: "a", target: "ab", enable: true }],
+    });
+    const result = settings.redirect("a");
+    expect(result).toBeTypeOf("string");
+    expect(result!.length).toBeGreaterThan(1);
+  });
 });

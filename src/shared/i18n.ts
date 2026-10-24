@@ -2,19 +2,19 @@
  * Localization helper for extension pages.
  *
  * Markup opts in with `data-i18n_text` (replaces the text content) and
- * `data-i18n_attr_<name>` (sets the `<name>` attribute), see
- * https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Internationalization
+ * `data-i18n_attr_<name>` (sets the `<name>` attribute), see `MDN_I18N_URL`
+ * in `./urls.ts`.
  */
 
 const TEXT_ATTRIBUTE = "data-i18n_text";
 const ATTRIBUTE_PREFIX = "data-i18n_attr_";
 
 /** Look up a locale message, or `undefined` when it is missing. */
-export function getMessage(id: string | undefined): string | undefined {
+export function getMessage(id: string | undefined, substitutions?: string[]): string | undefined {
   if (!id) {
     return undefined;
   }
-  const message = browser.i18n.getMessage(id);
+  const message = browser.i18n.getMessage(id, substitutions);
   // Firefox returns '"??' for unknown messages.
   return message && message !== '"??' ? message : undefined;
 }

@@ -1,6 +1,7 @@
 {
   "name": "urlredirector3",
-  "version": "1.4.0",
+  "displayName": "URLRedirector3",
+  "version": "1.5.1",
   "description": "Redirect URLs with regular expressions (Firefox WebExtension)",
   "homepage": "https://github.com/QZLin/URLRedirector3",
   "repository": {
@@ -13,6 +14,20 @@
   },
   "license": "MIT",
   "private": true,
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "URLRedirector3@qzlin.github.io",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
+    },
+    "gecko_android": {
+      "strict_min_version": "142.0"
+    }
+  },
   "type": "module",
   "engines": {
     "node": ">=20.19.0"
@@ -24,6 +39,7 @@
     "build:dev": "node build/build.mjs",
     "build:offline": "node build/build.mjs --prod --variant=offline",
     "watch": "node build/build.mjs --watch",
+    "clean": "node build/clean.mjs",
     "start": "web-ext run --source-dir dist/firefox",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -34,6 +50,8 @@
     "format:check": "prettier --check .",
     "check": "pnpm run format:check && pnpm run typecheck && pnpm run lint && pnpm run test",
     "package": "pnpm run build && node build/package.mjs",
+    "pack-src": "node build/pack-source.mjs",
+    "pack-src:list": "node build/pack-source.mjs --list",
     "package:offline": "pnpm run build:offline && node build/package.mjs --variant=offline",
     "sign": "pnpm run build && node --env-file-if-exists=.env build/sign.mjs"
   },
@@ -44,7 +62,8 @@
     "@eslint/js": "^9.39.1",
     "@types/firefox-webext-browser": "^143.0.1",
     "@types/jsdom": "^30.0.0",
-    "bootstrap": "^3.4.1",
+    "bootstrap": "^5.3.8",
+    "bootstrap-icons": "^1.13.2",
     "esbuild": "^0.28.2",
     "eslint": "^10.13.0",
     "globals": "^16.5.0",

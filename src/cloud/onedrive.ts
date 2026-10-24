@@ -1,12 +1,12 @@
 /**
  * OneDrive storage of the settings file, using the Microsoft Graph API.
  *
- * See https://learn.microsoft.com/en-us/onedrive/developer/rest-api/
+ * See {@link ONEDRIVE_DOC_URL}.
  */
 
+import { GRAPH_URL, ONEDRIVE_AUTHORIZE_URL, ONEDRIVE_REDIRECT_URL } from "../shared/urls";
+
 const CLIENT_ID = "380231ba-6b4d-44ae-a1bf-8daa67c0e15a";
-const GRAPH_URL = "https://graph.microsoft.com/v1.0";
-const REDIRECT_URL = "https://urlredirector.github.io/auth_onedrive.html";
 const SCOPE = "files.readwrite";
 const RESPONSE_TYPE = "token";
 
@@ -16,11 +16,11 @@ function dumpQueryString(params: Record<string, string>): string {
     .join("&");
 }
 
-const AUTH_URL = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${dumpQueryString({
+const AUTH_URL = `${ONEDRIVE_AUTHORIZE_URL}?${dumpQueryString({
   client_id: CLIENT_ID,
   response_type: RESPONSE_TYPE,
   scope: SCOPE,
-  redirect_url: REDIRECT_URL,
+  redirect_url: ONEDRIVE_REDIRECT_URL,
 })}`;
 
 interface TokenResponse {
@@ -74,10 +74,10 @@ export class OneDrive {
     tab: browser.tabs.Tab,
   ): void {
     const url = tab.url;
-    if (!url || !url.startsWith(REDIRECT_URL) || changeInfo.status !== "loading") {
+    if (!url || !url.startsWith(ONEDRIVE_REDIRECT_URL) || changeInfo.status !== "loading") {
       return;
     }
-    const token = loadQueryString(url.slice(REDIRECT_URL.length + 1)) as TokenResponse;
+    const token = loadQueryString(url.slice(ONEDRIVE_REDIRECT_URL.length + 1)) as TokenResponse;
     this.access_token = token.access_token;
     this.token_type = token.token_type;
     this.expires_in = Number(token.expires_in ?? 0);

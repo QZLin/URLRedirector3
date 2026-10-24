@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { isLegacyRuleFile, parseRuleFile, toOnlineURL } from "../src/shared/onlineRules";
+import {
+  isLegacyRuleFile,
+  parseRuleFile,
+  parseRuleList,
+  toOnlineURL,
+} from "../src/shared/onlineRules";
 
 describe("parseRuleFile", () => {
   it("parses a JSON object", () => {
@@ -23,6 +28,38 @@ describe("isLegacyRuleFile", () => {
     expect(isLegacyRuleFile({ version: "0.9" })).toBe(true);
     expect(isLegacyRuleFile({ version: "1.0" })).toBe(false);
     expect(isLegacyRuleFile({ version: 1 })).toBe(false);
+  });
+});
+
+describe("parseRuleList", () => {
+  it("returns the rules of a versioned file", () => {
+    expect(parseRuleList('{"version":"1.0","rules":[{"origin":"a","target":"b"}]}')).toEqual([
+      { origin: "a", target: "b" },
+    ]);
+  });
+
+  it("converts the legacy layout", () => {
+    expect(parseRuleList('{"rules":{"a\\\\.example":{"dstURL":"b.example"}}}')).toEqual([
+      { origin: "a\\.example", target: "b.example", enable: true, kind: undefined },
+    ]);
+  });
+
+  it("accepts a bare array of rules", () => {
+    expect(parseRuleList('[{"origin":"a","target":"b"}]')).toEqual([{ origin: "a", target: "b" }]);
+  });
+
+  it("accepts a single rule object", () => {
+    expect(parseRuleList('{"origin":"a","target":"b"}')).toEqual([{ origin: "a", target: "b" }]);
+  });
+
+  it("yields no rule for a file without a rule list", () => {
+    expect(parseRuleList('{"version":"1.0"}')).toEqual([]);
+  });
+
+  it("rejects invalid JSON and non rule documents", () => {
+    expect(() => parseRuleList("nope")).toThrow(SyntaxError);
+    expect(() => parseRuleList("null")).toThrow(TypeError);
+    expect(() => parseRuleList("42")).toThrow(TypeError);
   });
 });
 

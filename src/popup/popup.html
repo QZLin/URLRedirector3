@@ -3,6 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../static/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="../static/css/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="../static/css/app.css" />
     <style>
       html,
       body {
@@ -22,17 +24,17 @@
   </head>
   <body>
     <div class="main">
-      <div class="item">
-        <input type="checkbox" id="chbEnable" />
-        <label for="chbEnable" class="i18n" data-i18n_text="redirect">开启重定向</label>
+      <div class="item d-flex align-items-center gap-1">
+        <input type="checkbox" class="form-check-input m-0" id="chbEnable" />
+        <label for="chbEnable" class="i18n flex-grow-1" data-i18n_text="redirect">开启重定向</label>
         <button
           type="button"
           id="btnOptions"
-          class="btn btn-info btn-xs i18n"
+          class="btn btn-info btn-sm i18n"
           data-i18n_attr_title="options"
           title="配置"
         >
-          <i class="glyphicon glyphicon-cog"></i>
+          <i class="bi bi-gear"></i>
         </button>
       </div>
       <div style="height: 1px; width: 100%; background-color: black"></div>

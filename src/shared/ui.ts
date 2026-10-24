@@ -3,7 +3,7 @@
  * used: element building, modals, collapsible sections and fading.
  *
  * Only Bootstrap's stylesheet is shipped, so these helpers provide the few
- * behaviours its JavaScript would otherwise add.
+ * Bootstrap 5 behaviours its JavaScript would otherwise add.
  */
 
 export interface ElementOptions {
@@ -78,7 +78,7 @@ function setBackdrop(visible: boolean): void {
   let backdrop = document.querySelector<HTMLElement>(".modal-backdrop");
   if (visible) {
     if (!backdrop) {
-      backdrop = h("div", { className: "modal-backdrop fade in" });
+      backdrop = h("div", { className: "modal-backdrop fade show" });
       document.body.append(backdrop);
     }
     return;
@@ -86,21 +86,23 @@ function setBackdrop(visible: boolean): void {
   backdrop?.remove();
 }
 
-/** Show a Bootstrap modal without the Bootstrap JavaScript. */
+/** Show a Bootstrap 5 modal without the Bootstrap JavaScript. */
 export function showModal(modal: HTMLElement): void {
   modal.style.display = "block";
-  modal.classList.add("in");
+  modal.classList.add("show");
   modal.setAttribute("aria-hidden", "false");
+  modal.setAttribute("aria-modal", "true");
   document.body.classList.add("modal-open");
   setBackdrop(true);
 }
 
-/** Hide a Bootstrap modal without the Bootstrap JavaScript. */
+/** Hide a Bootstrap 5 modal without the Bootstrap JavaScript. */
 export function hideModal(modal: HTMLElement): void {
   modal.style.display = "none";
-  modal.classList.remove("in");
+  modal.classList.remove("show");
   modal.setAttribute("aria-hidden", "true");
-  if (!document.querySelector(".modal.in")) {
+  modal.removeAttribute("aria-modal");
+  if (!document.querySelector(".modal.show")) {
     document.body.classList.remove("modal-open");
     setBackdrop(false);
   }
@@ -108,7 +110,7 @@ export function hideModal(modal: HTMLElement): void {
 
 /** Expand or collapse a Bootstrap `.collapse` section. */
 export function setCollapsed(element: HTMLElement, collapsed: boolean): void {
-  element.classList.toggle("in", !collapsed);
+  element.classList.toggle("show", !collapsed);
   element.style.display = collapsed ? "none" : "block";
 }
 
@@ -136,11 +138,11 @@ export function show(element: HTMLElement): void {
   element.style.opacity = "1";
 }
 
-/** Wire `[data-dismiss="modal"]` buttons and backdrop clicks to their modal. */
+/** Wire `[data-bs-dismiss="modal"]` buttons and backdrop clicks to their modal. */
 export function initModals(): void {
   document.addEventListener("click", (event) => {
     const target = event.target as HTMLElement | null;
-    const dismiss = target?.closest<HTMLElement>("[data-dismiss='modal']");
+    const dismiss = target?.closest<HTMLElement>("[data-bs-dismiss='modal']");
     if (dismiss) {
       const modal = dismiss.closest<HTMLElement>(".modal");
       if (modal) {
@@ -157,7 +159,9 @@ export function initModals(): void {
     if (event.key !== "Escape") {
       return;
     }
-    const modal = document.querySelector<HTMLElement>(".modal.in");
+    /* A dialog can open another one on top, so close the last shown one. */
+    const shown = document.querySelectorAll<HTMLElement>(".modal.show");
+    const modal = shown[shown.length - 1];
     if (modal) {
       hideModal(modal);
     }

@@ -1,6 +1,6 @@
 {
   "extensionName": {
-    "message": "URLRedirector",
+    "message": "URLRedirector3",
     "description": "Name of the extension."
   },
   "extensionDescription": {
@@ -73,6 +73,18 @@
     "message": "Delete",
     "description": "Delete."
   },
+  "addToTop": {
+    "message": "Add (hold Shift to add it to the top)",
+    "description": "Add a rule at the top."
+  },
+  "confirmDelete": {
+    "message": "Confirm deletion",
+    "description": "Title of the delete confirmation."
+  },
+  "confirmDeleteRule": {
+    "message": "Delete the rule \"$1\"?",
+    "description": "Text of the delete confirmation."
+  },
   "download": {
     "message": "Download",
     "description": "Download."
@@ -124,6 +136,18 @@
   "priority": {
     "message": "Priority",
     "description": "Rule priority."
+  },
+  "moveUp": {
+    "message": "Move up (hold Shift to move it to the top)",
+    "description": "Move the rule one position up."
+  },
+  "moveDown": {
+    "message": "Move down (hold Shift to move it to the bottom)",
+    "description": "Move the rule one position down."
+  },
+  "dragToReorder": {
+    "message": "Drag to reorder",
+    "description": "Drag handle of a reorderable row."
   },
 
   "userRules": {
@@ -237,6 +261,34 @@
     "message": "JSON Format",
     "description": "JSON format."
   },
+  "fromJSON": {
+    "message": "Import from JSON",
+    "description": "Import rules from JSON."
+  },
+  "importHint": {
+    "message": "Paste JSON rules (the same shape as \"View as JSON\"). Imported rules are appended to the user rules and only take effect after saving.",
+    "description": "Import hint."
+  },
+  "importRules": {
+    "message": "Import",
+    "description": "Confirm the import."
+  },
+  "importEmpty": {
+    "message": "Nothing to import",
+    "description": "Empty import input."
+  },
+  "importInvalid": {
+    "message": "The JSON could not be parsed",
+    "description": "Invalid import JSON."
+  },
+  "importNothing": {
+    "message": "No rule to import, all entries were skipped",
+    "description": "No importable rule."
+  },
+  "imported": {
+    "message": "Imported $1 rule(s), skipped $2",
+    "description": "Import result."
+  },
   "cloudHint": {
     "message": "The content below could be saved online (e.g. github/onedrive) and shared with others.",
     "description": "Cloud hint."
@@ -296,5 +348,13 @@
   "parseError": {
     "message": "Failed to parse",
     "description": "JsonParseError"
+  },
+  "saving": {
+    "message": "Saving...",
+    "description": "Autosave in progress"
+  },
+  "saved": {
+    "message": "Saved",
+    "description": "Autosave succeeded"
   }
 }

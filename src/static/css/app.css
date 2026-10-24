@@ -1,0 +1,78 @@
+/*
+ * Project tweaks on top of Bootstrap 5.
+ *
+ * Bootstrap dropped a few classes the extension relied on: `.btn-xs`, the
+ * `.checkbox` input style and the `.modal-open` body lock. Keep them here
+ * instead of scattering inline styles over the markup.
+ */
+
+.btn-xs {
+  --bs-btn-padding-y: 0.1rem;
+  --bs-btn-padding-x: 0.35rem;
+  --bs-btn-font-size: 0.75rem;
+  --bs-btn-border-radius: 0.25rem;
+}
+
+/* Keep table checkboxes and the up/down `middle` helper vertically centred. */
+.middle {
+  vertical-align: middle;
+}
+
+td > .form-check-input,
+th > .form-check-input {
+  display: block;
+  float: none;
+  margin: 0.25rem auto;
+}
+
+/*
+ * Header cells stay on a single line and stay short: a wrapped label (Gecko
+ * measures CJK glyphs wider than Chromium) and the checkbox margin are what
+ * made the header row tall. The selectors have to outrank Bootstrap's
+ * `.table > :not(caption) > * > *` padding rule and `.form-check-input` margin.
+ */
+.table > thead > tr > th {
+  white-space: nowrap;
+  padding-block: 0.25rem;
+}
+
+.table > thead > tr > th > .form-check-input {
+  margin-block: 0;
+}
+
+/* Bootstrap 5 locks body scrolling from JavaScript; the modal helper uses a class. */
+body.modal-open {
+  overflow: hidden;
+}
+
+/*
+ * Grip that reorders the rows of the subscription and rule tables.
+ *
+ * The whole cell is the drag target, not just the icon, so a drag is easy to
+ * start; the icon itself ignores the pointer.
+ */
+.drag-cell {
+  cursor: grab;
+  user-select: none;
+}
+
+.drag-cell > .drag-handle {
+  display: block;
+  color: var(--bs-secondary-color);
+  text-align: center;
+  pointer-events: none;
+}
+
+.drag-cell:hover > .drag-handle {
+  color: var(--bs-body-color);
+}
+
+/* Autosave state next to the save and reset buttons. */
+#saveState {
+  color: var(--bs-secondary-color);
+  min-width: 4em;
+}
+
+tr.dragging {
+  opacity: 0.5;
+}

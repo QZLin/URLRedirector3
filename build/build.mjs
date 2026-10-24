@@ -15,6 +15,8 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 
+import { createManifest } from "./manifest.mjs";
+
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SRC = join(ROOT, "src");
 
@@ -32,11 +34,20 @@ const OUT = join(ROOT, "dist", variant === "offline" ? "firefox-offline" : "fire
 const STATIC_FILES = [
   [join(SRC, "options/options.html"), "options/options.html"],
   [join(SRC, "popup/popup.html"), "popup/popup.html"],
+  [join(SRC, "static/css/app.css"), "static/css/app.css"],
 ];
 
 /** Third party assets, vendored at build time so that `src` stays dependency free. */
 const VENDOR_FILES = [
   ["node_modules/bootstrap/dist/css/bootstrap.min.css", "static/css/bootstrap.min.css"],
+  [
+    "node_modules/bootstrap-icons/font/bootstrap-icons.min.css",
+    "static/css/bootstrap-icons.min.css",
+  ],
+  [
+    "node_modules/bootstrap-icons/font/fonts/bootstrap-icons.woff2",
+    "static/css/fonts/bootstrap-icons.woff2",
+  ],
 ];
 
 /** esbuild entry points. */
@@ -48,15 +59,24 @@ const ENTRY_POINTS = [
 
 const VARIANT_MANIFEST = {
   firefox: {},
-  offline: {
-    name: "URLRedirector-offline",
-    browser_specific_settings: { gecko: { id: "URLRedirector-offline@fengyc" } },
-  },
+  offline: {},
 };
+
+/** Whether OUT was cleaned already, see {@link prepare}. */
+let prepared = false;
 
 /** Copy the static assets and write the manifest for this variant. */
 async function prepare() {
-  await rm(OUT, { recursive: true, force: true });
+  /*
+   * In watch mode the bundles live in the same directory and esbuild only
+   * rewrites the entry points a change touched, so wiping OUT on every change
+   * would delete the bundles that stayed the same (touching an HTML file used
+   * to leave the whole build devoid of JavaScript). Clean once per process.
+   */
+  if (!prepared) {
+    await rm(OUT, { recursive: true, force: true });
+    prepared = true;
+  }
   await mkdir(OUT, { recursive: true });
 
   await cp(join(SRC, "static/images"), join(OUT, "static/images"), { recursive: true });
@@ -71,20 +91,16 @@ async function prepare() {
     await mkdir(dirname(join(OUT, to)), { recursive: true });
     await cp(join(ROOT, from), join(OUT, to));
   }
-  await cp(join(ROOT, "node_modules/bootstrap/dist/fonts"), join(OUT, "static/fonts"), {
-    recursive: true,
-  });
-
   const pkg = JSON.parse(await readFile(join(ROOT, "package.json"), "utf8"));
-  const manifest = JSON.parse(await readFile(join(SRC, "manifest.json"), "utf8"));
-  manifest.version = pkg.version;
+  const template = JSON.parse(await readFile(join(SRC, "manifest.json"), "utf8"));
+  // package.json is the single source of truth for the identity of the add-on.
+  const manifest = createManifest(pkg, template);
 
   const overrides = VARIANT_MANIFEST[variant];
   if (!overrides) {
     throw new Error(`Unknown variant "${variant}", expected "firefox" or "offline"`);
   }
   if (overrides.name) {
-    // Keep the localized name, only swap it for the offline build.
     manifest.name = overrides.name;
   }
   if (overrides.browser_specific_settings) {
@@ -110,7 +126,7 @@ async function compile() {
         outfile: join(OUT, entry.out),
         bundle: true,
         format: entry.format,
-        target: ["firefox115"],
+        target: ["firefox140"],
         platform: "browser",
         sourcemap: isProd ? false : "linked",
         minify: isProd,
@@ -130,7 +146,7 @@ async function startWatching() {
         outfile: join(OUT, entry.out),
         bundle: true,
         format: entry.format,
-        target: ["firefox115"],
+        target: ["firefox140"],
         platform: "browser",
         sourcemap: "linked",
         logLevel: "warning",

@@ -1,6 +1,6 @@
 {
   "extensionName": {
-    "message": "URLRedirector",
+    "message": "URLRedirector3",
     "description": "Name of the extension."
   },
   "extensionDescription": {
@@ -73,6 +73,18 @@
     "message": "删除",
     "description": "Delete."
   },
+  "addToTop": {
+    "message": "添加（按住 Shift 添加到顶部）",
+    "description": "Add a rule at the top."
+  },
+  "confirmDelete": {
+    "message": "确认删除",
+    "description": "Title of the delete confirmation."
+  },
+  "confirmDeleteRule": {
+    "message": "确定要删除规则「$1」吗？",
+    "description": "Text of the delete confirmation."
+  },
   "download": {
     "message": "下载",
     "description": "Download."
@@ -124,6 +136,18 @@
   "priority": {
     "message": "优先顺序",
     "description": "Rule priority."
+  },
+  "moveUp": {
+    "message": "上移（按住 Shift 移到顶部）",
+    "description": "Move the rule one position up."
+  },
+  "moveDown": {
+    "message": "下移（按住 Shift 移到底部）",
+    "description": "Move the rule one position down."
+  },
+  "dragToReorder": {
+    "message": "拖动排序",
+    "description": "Drag handle of a reorderable row."
   },
 
   "userRules": {
@@ -237,6 +261,34 @@
     "message": "JSON 格式用户规则",
     "description": "JSON format."
   },
+  "fromJSON": {
+    "message": "从 JSON 导入",
+    "description": "Import rules from JSON."
+  },
+  "importHint": {
+    "message": "粘贴 JSON 规则（与「显示为 JSON 格式」导出的内容一致），导入的规则会追加到用户规则末尾，点击「保存」后生效",
+    "description": "Import hint."
+  },
+  "importRules": {
+    "message": "导入",
+    "description": "Confirm the import."
+  },
+  "importEmpty": {
+    "message": "请先粘贴要导入的 JSON",
+    "description": "Empty import input."
+  },
+  "importInvalid": {
+    "message": "JSON 格式不正确，无法解析",
+    "description": "Invalid import JSON."
+  },
+  "importNothing": {
+    "message": "没有可导入的规则，已全部跳过",
+    "description": "No importable rule."
+  },
+  "imported": {
+    "message": "已导入 $1 条规则，跳过 $2 条",
+    "description": "Import result."
+  },
   "cloudHint": {
     "message": "以下内容可保存到在线存储（github、云盘等），作为在线用户规则文件使用",
     "description": "Cloud hint."
@@ -296,5 +348,13 @@
   "parseError": {
     "message": "无法解析",
     "description": "JsonParseError"
+  },
+  "saving": {
+    "message": "保存中…",
+    "description": "自动保存进行中"
+  },
+  "saved": {
+    "message": "已保存",
+    "description": "自动保存完成"
   }
 }

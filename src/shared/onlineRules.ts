@@ -1,5 +1,6 @@
 /**
- * Parsing of downloaded online rule files.
+ * Parsing of rule files, either downloaded subscriptions or JSON the user
+ * pasted into the import dialog of the options page.
  *
  * Two formats are supported: the historical gooreplacer format (a `rules`
  * object without a version) and the versioned URLRedirector format (a `rules`
@@ -49,6 +50,33 @@ function convertLegacyRules(rules: unknown): RuleData[] {
 }
 
 /**
+ * Read the rule list of a rule file, accepting both supported layouts.
+ *
+ * A bare JSON array of rules or a single rule object is accepted as well,
+ * because that is what the options page hands over when the user pastes rules
+ * to import.
+ *
+ * @throws {SyntaxError} when `content` is not valid JSON.
+ * @throws {TypeError} when `content` is neither a rule file nor a rule array.
+ */
+export function parseRuleList(content: string): RuleData[] {
+  const parsed: unknown = JSON.parse(content);
+  if (Array.isArray(parsed)) {
+    return parsed as RuleData[];
+  }
+  if (!parsed || typeof parsed !== "object") {
+    throw new TypeError("A rule file must be a JSON object or an array of rules");
+  }
+  const file = parsed as RuleFile;
+  if (!("rules" in file) && typeof (file as RuleData).origin === "string") {
+    return [file as RuleData];
+  }
+  return isLegacyRuleFile(file)
+    ? convertLegacyRules(file.rules)
+    : ((Array.isArray(file.rules) ? file.rules : []) as RuleData[]);
+}
+
+/**
  * Turn a downloaded rule file into a subscription.
  *
  * The subscription is always enabled, because downloading only happens for
@@ -56,11 +84,7 @@ function convertLegacyRules(rules: unknown): RuleData[] {
  */
 export function toOnlineURL(file: RuleFile, url: string): OnlineURL {
   const data: OnlineURLData = { ...file, url, enable: true } as OnlineURLData;
-  if (isLegacyRuleFile(file)) {
-    data.rules = convertLegacyRules(file.rules);
-  } else {
-    data.rules = (Array.isArray(file.rules) ? file.rules : []) as RuleData[];
-  }
+  data.rules = parseRuleList(JSON.stringify(file));
   const onlineURL = new OnlineURL();
   onlineURL.fromObject(data);
   return onlineURL;

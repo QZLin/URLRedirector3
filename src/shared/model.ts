@@ -203,7 +203,8 @@ export class OnlineURL {
     }
     for (const rule of this.rules) {
       const newURL = rule.redirect(url, method, type);
-      if (newURL) {
+      // A rule that leaves the URL untouched must not shadow the rules after it.
+      if (newURL && newURL !== url) {
         return newURL;
       }
     }
@@ -211,7 +212,7 @@ export class OnlineURL {
   }
 }
 
-/** Guard against redirect loops. */
+/** Guard against rule chains that keep growing the URL. */
 const MAX_REDIRECT_STEPS = 1000;
 
 /** The complete, persisted extension settings. */
@@ -252,37 +253,43 @@ export class Storage {
    * Apply every rule repeatedly until the URL stops changing.
    *
    * User rules take precedence over subscribed ones, and each step is applied on
-   * the result of the previous one so chained rules keep working.
+   * the result of the previous one so chained rules keep working. Rules that
+   * leave the URL as it is are skipped, and a URL that comes back around is
+   * treated as settled.
    *
-   * @returns the final URL, or `null` when no rule matched.
+   * @returns the final URL, or `null` when the URL never changed.
    */
   redirect(url: string, method?: string, type?: string): string | null {
     if (!this.enable) {
       return null;
     }
-    let matched = false;
+    const original = url;
+    const seen = new Set([url]);
     for (let step = 0; step < MAX_REDIRECT_STEPS; step++) {
       const newURL = this.#findMatch(url, method, type);
       if (!newURL) {
-        return matched ? url : null;
+        break;
       }
-      matched = true;
       url = newURL;
+      if (seen.has(url)) {
+        break;
+      }
+      seen.add(url);
     }
-    // A rule chain that never settles is treated as "no redirect".
-    return null;
+    return url === original ? null : url;
   }
 
+  /** First rule of the chain that actually rewrites `url`. */
   #findMatch(url: string, method?: string, type?: string): string | null {
     for (const rule of this.customRules) {
       const newURL = rule.redirect(url, method, type);
-      if (newURL) {
+      if (newURL && newURL !== url) {
         return newURL;
       }
     }
     for (const onlineURL of this.onlineURLs) {
       const newURL = onlineURL.redirect(url, method, type);
-      if (newURL) {
+      if (newURL && newURL !== url) {
         return newURL;
       }
     }
