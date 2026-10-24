@@ -105,7 +105,7 @@
 
 需要 Node.js 20.19+、[pnpm](https://pnpm.io/) 12.14（`packageManager` 已锁定，建议用 `corepack enable`）与 Firefox 140+。运行 `pnpm run dev` 还要求安装 **Firefox Developer Edition**（`web-ext-config.mjs` 指定）；用其它渠道可在命令后加 `--firefox=firefox`。
 
-构建环境细节、产物映射和 AMO 源码审查说明见 [SOURCE.md](SOURCE.md)。
+构建环境细节、产物映射和 AMO 源码审查说明见 [build.md](build.md)。
 
 ```sh
 corepack enable

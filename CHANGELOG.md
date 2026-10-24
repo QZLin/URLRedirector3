@@ -5,6 +5,7 @@
 - 自动保存不再裁剪 `settings` 里的空行，未填完的订阅行会留在原处，避免行号与设置数组错位
 - Bootstrap 3.4.1 → 5.3.8：标记改用 BS5 的栅格、表单、按钮与弹窗写法（`data-bs-dismiss`、`.btn-close`、`.form-check`、`.float-end` 等）
 - glyphicons 图标替换为 Bootstrap Icons，字体仍由构建时从 `node_modules` 复制
+- 生成图标的 `resize.sh` 从 `src/static/images` 移到 `tools/`，不再随扩展打包，消除 `web-ext lint` 的 FLAGGED_FILE_EXTENSION 警告
 - 调整 `src/shared/ui.ts` 的弹窗/折叠 helper 以匹配 BS5 的 `.show` 语义，保留 `modal-open` 滚动锁
 - 新增 `src/static/css/app.css`，存放 Bootstrap 5 已移除的 `.btn-xs` 等少量补充样式
 - 配置页弹窗改为大尺寸，并按 BS5 习惯把关闭按钮放到标题之后

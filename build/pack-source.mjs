@@ -4,7 +4,7 @@
  * AMO requires the source code of every submitted build together with the
  * steps to rebuild it. The archive therefore contains the whole buildable
  * tree (sources, build scripts, tests, lockfile, tool configuration and the
- * `SOURCE.md` build instructions) and deliberately leaves out everything that
+ * `build.md` build instructions) and deliberately leaves out everything that
  * is generated or machine specific: `node_modules`, `dist`, `.git`, `.env`,
  * logs and the screenshot assets in `tools`.
  *
@@ -13,7 +13,7 @@
  *   node build/pack-source.mjs --list    # only print what would be packed
  *
  * The archive is a plain, flat ZIP of the repository tree, so the paths in
- * `SOURCE.md` apply unchanged once it is extracted.
+ * `build.md` apply unchanged once it is extracted.
  */
 
 import { readFile, readdir, mkdir, stat } from "node:fs/promises";
@@ -35,7 +35,7 @@ const ROOT_FILES = [
   "CHANGELOG.md",
   "LICENSE",
   "README.md",
-  "SOURCE.md",
+  "build.md",
   "eslint.config.js",
   "package.json",
   "pnpm-lock.yaml",

@@ -1,8 +1,9 @@
 # Building URLRedirector3 from source
 
-This archive contains the complete source of URLRedirector3 (version 1.5.0),
-the Firefox WebExtension that rewrites request URLs with regular expressions.
-It is the source of the submitted build and rebuilds it byte for byte.
+This archive contains the complete source of URLRedirector3, the Firefox
+WebExtension that rewrites request URLs with regular expressions. The version
+built from it is the `version` field of `package.json`. It is the source of the
+submitted build and rebuilds it byte for byte.
 
 Everything comes from the files in this archive. There is no generated code,
 no download step besides installing the pinned dependencies and no manual
@@ -71,13 +72,13 @@ pnpm run package
 ```
 
 This builds and then zips `dist/firefox` into
-`dist/artifacts/urlredirector-firefox-v1.5.0.zip` using `web-ext` 10.8.0. That
-ZIP is the file submitted to addons.mozilla.org. Neither command contains
-environment-specific steps.
+`dist/artifacts/urlredirector-firefox-v<version>.zip` using `web-ext` 10.8.0,
+with `<version>` taken from `package.json`. That ZIP is the file submitted to
+addons.mozilla.org. Neither command contains environment-specific steps.
 
 The optional `--variant=offline` build (`pnpm run build:offline`,
 `pnpm run package:offline`) writes to `dist/firefox-offline` and produces
-`dist/artifacts/urlredirector-firefox-offline-v1.5.0.zip` from the same
+`dist/artifacts/urlredirector-firefox-offline-v<version>.zip` from the same
 sources and with the same manifest.
 
 ## Verifying the result
@@ -105,8 +106,9 @@ the blocking `webRequest` API, which current Chrome versions do not offer.
 
 ## Contents of this archive
 
-Included: `src`, `build`, `tests`, `tools` (rule examples and the options
-screenshot), `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`,
+Included: `src`, `build`, `tests`, `tools` (rule examples, the options
+screenshot and `resize.sh`, which regenerates the icons), `package.json`,
+`pnpm-lock.yaml`, `pnpm-workspace.yaml`,
 `tsconfig.json`, `vitest.config.ts`, `eslint.config.js`, `.prettier*`,
 `web-ext-config.mjs`, `README.md`, `CHANGELOG.md`, `LICENSE`, this file.
 
@@ -117,7 +119,8 @@ is included).
 
 ## Recreating this archive
 
-`pnpm run pack-src` writes `dist/artifacts/urlredirector3-v1.5.0-src.zip` with
-exactly the contents listed above; `pnpm run pack-src:list` prints the file
-list. The archive is a plain ZIP of the repository root, so all paths in this
-document apply unchanged after extraction.
+`pnpm run pack-src` writes
+`dist/artifacts/urlredirector3-v<version>-src.zip` with exactly the contents
+listed above; `pnpm run pack-src:list` prints the file list. The archive is a
+plain ZIP of the repository root, so all paths in this document apply unchanged
+after extraction.

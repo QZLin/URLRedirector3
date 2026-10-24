@@ -22,7 +22,7 @@ const sourceDir = variant === "offline" ? "dist/firefox-offline" : "dist/firefox
 const pkg = JSON.parse(await readFile(join(ROOT, "package.json"), "utf8"));
 const suffix = variant === "offline" ? "firefox-offline" : "firefox";
 // `web-ext` lower cases the artifact name and replaces unsupported characters.
-const filename = `urlredirector-${suffix}-v${pkg.version}.zip`;
+const filename = `urlredirector3-${suffix}-v${pkg.version}.zip`;
 
 const { stdout } = await run(
   process.execPath,
